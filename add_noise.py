@@ -23,8 +23,10 @@ def add_noise(data, sigma):
 """
 #example
 file = uproot.rootio.open("test.root")
-data = get_bin_weights(file, 0)
-noisy = add_noise(data,0.5)
+truth = get_bin_weights(file, 1)
+noisy = add_noise(truth,0.5)
+plt.imshow(truth)
+plt.savefig("truth.png")
+plt.imshow(noisy)
+plt.savefig("noisy.png")
 """
-
-
