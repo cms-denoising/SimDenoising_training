@@ -27,17 +27,16 @@ def get_bin_weights(file, n):
     
 
 def add_noise(data, sigma):
-    noisy = data + np.random.normal(loc=0.0,scale=sigma, size=[100,100])
-    noisy = np.clip(noisy, a_min=0, a_max=None)
-    return noisy;
+    return np.clip(data + np.random.normal(loc=0.0,scale=sigma, size=[100,100]), a_min=0, a_max=None);
 
 
 #example
-file = uproot.rootio.open("test.root")
-truth = get_bin_weights(file, 1)
-noisy = add_noise(truth,0.5)
-plt.imshow(truth)
-plt.savefig("truth.png")
-plt.imshow(noisy)
-plt.savefig("noisy.png")
+if __name__=="__main__":
+    file = uproot.rootio.open("test.root")
+    truth = get_bin_weights(file, 1)
+    noisy = add_noise(truth,0.5)
+    plt.imshow(truth)
+    plt.savefig("truth.png")
+    plt.imshow(noisy)
+    plt.savefig("noisy.png")
 
