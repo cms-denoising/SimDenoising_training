@@ -3,6 +3,7 @@ import uproot
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random 
+import torch.utils.data as udata
 
 def get_all_histograms(file_path):
     file = uproot.rootio.open(file_path)
@@ -32,5 +33,4 @@ def get_bin_weights(branch, n):
 
 def add_noise(data, sigma):
     return np.clip(data + np.random.normal(loc=0.0,scale=sigma, size=[100,100]), a_min=0, a_max=None);
-
 
