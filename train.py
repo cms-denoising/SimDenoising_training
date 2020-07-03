@@ -65,6 +65,7 @@ def main():
     validation_files = glob.glob(os.path.join(opt.validation_path, '*root'))
     # peak signal to noise ratio
     loss_val = 0
+    count = 0
     for validation_file in validation_files:
         print("Opened file " + validation_file)
         branch = get_all_histograms(validation_file)
@@ -82,6 +83,8 @@ def main():
             out_train = model(noisy.float())
             loss_val+=criterion(out_train.squeeze(0).squeeze(0), data, 10)
         loss_val/=length
+        #writer.add_scalar('Loss values on validation data', loss_val, count)
+        count+=1
     # save the model
     torch.save(model.state_dict(), os.path.join(opt.outf, 'net.pth'))
         
