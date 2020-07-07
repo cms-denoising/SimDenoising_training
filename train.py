@@ -29,8 +29,15 @@ parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rat
 args = parser.parse_args()
 
 def init_weights(m):
-    if type(m) == nn.Linear:
-        torch.nn.init.xavier_uniform(m.weight)
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.xavier_uniform(m.weight)
+        m.bias.data.fill_(0.01)
+    elif classname.find('Linear') != -1:
+        nn.init.xavier_uniform(m.weight)
+        m.bias.data.fill_(0.01)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.xavier_uniform(m.weight)
         m.bias.data.fill_(0.01)
 
 def main():
@@ -46,7 +53,7 @@ def main():
     criterion = PatchLoss()
     criterion.to(device=args.device)
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    writer = SummaryWriter(args.outf)
+    
     loss_per_epoch = np.zeros(args.epochs)
     # train the net
     step = 0
@@ -57,7 +64,7 @@ def main():
             print("Opened file " + training_file)
             branch = get_all_histograms(training_file)
             length = np.size(branch)
-            for i in range(10):
+            for i in range(length):
                 model.train()
                 model.zero_grad()
                 optimizer.zero_grad()
@@ -86,7 +93,7 @@ def main():
             print("Opened file " + validation_file)
             branch = get_all_histograms(validation_file)
             length = np.size(branch)
-            for i in range (10):
+            for i in range (length):
                 # get data (ground truth)
                 data = get_bin_weights(branch, 0).copy()
                 # add noise
