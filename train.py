@@ -22,28 +22,22 @@ parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions())
 parser.add_argument("training_path", nargs="?", type=str, default="./data/training", help='path of .root data set to be used for training')
 parser.add_argument("validation_path", nargs="?", type=str, default="./data/validation", help='path of .root data set to be used for validation')
 parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers")
-parser.add_argument("--sigma", type=float, default=0.5, help='noise level')
+parser.add_argument("--sigma", type=float, default=0.6, help='noise level')
 parser.add_argument("--outf", type=str, default="logs", help='path of log files')
 parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
 args = parser.parse_args()
 
 def init_weights(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        nn.init.xavier_uniform(m.weight)
-        m.bias.data.fill_(0.01)
-    elif classname.find('Linear') != -1:
-        nn.init.xavier_uniform(m.weight)
-        m.bias.data.fill_(0.01)
-    elif classname.find('BatchNorm') != -1:
-        nn.init.xavier_uniform(m.weight)
+    if type(m) == nn.Linear:
+        torch.nn.init.xavier_uniform(m.weight)
         m.bias.data.fill_(0.01)
 
 def main():
     args.device = torch.device('cpu')
     # check for gpu
     if torch.cuda.is_available():
+        torch.cuda.empty_cache()
         args.device = torch.device('cuda')
         print("Switched to gpu")
     else:
@@ -53,7 +47,7 @@ def main():
     criterion = PatchLoss()
     criterion.to(device=args.device)
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    
+    writer = SummaryWriter(args.outf)
     loss_per_epoch = np.zeros(args.epochs)
     # train the net
     step = 0
@@ -114,7 +108,20 @@ def main():
         print("Average loss per image in epoch " + str(epoch) + " of " + str(args.epochs-1) +": "+ str(epoch_loss))
     loss_plot = plt.plot(loss_per_epoch)
     plt.savefig("loss_plot.png")
+    #make some images and store to csv
+    branch = get_all_histograms("test.root")
+    for image in range(10):
+        model.to('cpu')
+        data = get_bin_weights(branch, image).copy()
+        np.savetxt('logs/truth' + str(image) + '.txt', data)
+        noisy = add_noise(data, args.sigma).copy()
+        np.savetxt('logs/noisy' + str(image) + '.txt', noisy)
+        data = torch.from_numpy(data)
+        noisy = torch.from_numpy(noisy)
+        noisy = noisy.unsqueeze(0)
+        noisy = noisy.unsqueeze(1)
+        out_train = model(noisy.float()).squeeze(0).squeeze(0)
+        np.savetxt('logs/output' + str(image) + '.txt', out_train.detach().numpy())
+        
 if __name__ == "__main__":
     main()
-
-
