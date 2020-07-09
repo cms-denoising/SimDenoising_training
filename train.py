@@ -23,11 +23,12 @@ parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions())
 parser.add_argument("training_path", nargs="?", type=str, default="./data/training", help='path of .root data set to be used for training')
 parser.add_argument("validation_path", nargs="?", type=str, default="./data/validation", help='path of .root data set to be used for validation')
 parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers")
-parser.add_argument("--sigma", type=float, default=0.6, help='noise level')
+parser.add_argument("--sigma", type=float, default=3, help='noise level')
 parser.add_argument("--outf", type=str, default="logs", help='path of log files')
 parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
-parser.add_argument("--rootfile", type=str, default="file.root", help='path of .root file')
+parser.add_argument("--rootfile", type=str, default="test.root", help='path of .root file')
+parser.add_argument("--batchSize", type=int, default=128, help="Training batch size")
 args = parser.parse_args()
 
 def init_weights(m):
@@ -47,8 +48,8 @@ def main():
 
     # Load dataset
     print('Loading dataset ...\n')
-    dataset_train = RootDataset(root_file=args.rootfile)
-    loader_train = DataLoader(dataset=dataset_train)
+    dataset_train = RootDataset(root_file=args.rootfile, sigma = args.sigma)
+    loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize)
 
     # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_of_layers).to(device=args.device)
@@ -61,7 +62,6 @@ def main():
     #Optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
     
-    loss_per_epoch = np.zeros(args.epochs)
     # training
     step = 0
     for epoch in range(args.epochs):
@@ -69,39 +69,21 @@ def main():
         for i, data in enumerate(loader_train, 0):
             model.train()
             model.zero_grad()
-            img_train = data
-            print(img_train.shape)
-        """
-        # validation
-        validation_files = glob.glob(os.path.join(args.validation_path, '*root'))
-        # peak signal to noise ratio
-        epoch_loss = 0
-        count = 0
-        for validation_file in validation_files:
-            print("Opened file " + validation_file)
-            branch = get_all_histograms(validation_file)
-            length = np.size(branch)
-            for i in range (length):
-                # get data (ground truth)
-                data = get_bin_weights(branch, 0).copy()
-                # add noise
-                noisy = add_noise(data, args.sigma).copy()
-                # convert to tensor
-                data = torch.from_numpy(data).to(device=args.device)
-                noisy = torch.from_numpy(noisy)
-                noisy = noisy.unsqueeze(0)
-                noisy = noisy.unsqueeze(1).to(device=args.device)
-                out_train = model(noisy.float()).to(device=args.device)
-                loss = criterion(out_train.squeeze(0).squeeze(0), data, 10)
-                epoch_loss+=loss.item()
-            epoch_loss/=length
-            count+=1
+            truth, noise = data
+            noise = noise.unsqueeze(1)
+            output = model(noise.float().to(args.device))
+            loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 10).to(args.device)
+            loss.backward()
+            print("Batch loss size: " + str(loss.item()))
+            optimizer.step()
+            model.eval()
+        
+        # TODO validation
+        
         # save the model
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
-        loss_per_epoch[epoch] = epoch_loss
-        print("Average loss per image in epoch " + str(epoch) + " of " + str(args.epochs-1) +": "+ str(epoch_loss))
-    loss_plot = plt.plot(loss_per_epoch)
-    plt.savefig("loss_plot.png")
+    
+    """
     #make some images and store to csv
     branch = get_all_histograms("test.root")
     for image in range(10):
@@ -116,6 +98,7 @@ def main():
         noisy = noisy.unsqueeze(1)
         out_train = model(noisy.float()).squeeze(0).squeeze(0)
         np.savetxt('logs/output' + str(image) + '.txt', out_train.detach().numpy())
-     """
+    """
+
 if __name__ == "__main__":
     main()

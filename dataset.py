@@ -36,13 +36,15 @@ def add_noise(data, sigma):
     return np.clip(data + np.random.normal(loc=0.0,scale=sigma, size=[100,100]), a_min=0, a_max=None);
 
 class RootDataset(udata.Dataset):
-    def __init__(self, root_file):
+    def __init__(self, root_file, sigma):
         self.root_file = root_file
+        self.sigma = sigma
         self.histograms = get_all_histograms(root_file)
 
     def __len__(self):
         return len(self.histograms)
 
     def __getitem__(self, idx):
-        return torch.from_numpy(get_bin_weights(self.histograms, idx).copy())
-        
+        truth = torch.from_numpy(get_bin_weights(self.histograms, idx).copy())
+        noisy = torch.from_numpy(add_noise(get_bin_weights(self.histograms, idx), self.sigma).copy())
+        return truth, noisy 
