@@ -66,6 +66,7 @@ def main():
     step = 0
     for epoch in range(args.epochs):
         print("Beginning epoch " + str(epoch))
+        loss = 0
         for i, data in enumerate(loader_train, 0):
             model.train()
             model.zero_grad()
@@ -73,17 +74,17 @@ def main():
             noise = noise.unsqueeze(1)
             output = model(noise.float().to(args.device))
             loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 10).to(args.device)
-            loss.backward()
-            print("Batch loss size: " + str(loss.item()))
-            optimizer.step()
-            model.eval()
+            print("Batch loss: " + str(loss.item()))
+        loss.backward()
+        optimizer.step()
+        model.eval()
         
         # TODO validation
         
         # save the model
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
     
-    """
+    
     #make some images and store to csv
     branch = get_all_histograms("test.root")
     for image in range(10):
@@ -98,7 +99,7 @@ def main():
         noisy = noisy.unsqueeze(1)
         out_train = model(noisy.float()).squeeze(0).squeeze(0)
         np.savetxt('logs/output' + str(image) + '.txt', out_train.detach().numpy())
-    """
+    
 
 if __name__ == "__main__":
     main()
