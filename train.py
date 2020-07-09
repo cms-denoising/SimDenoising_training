@@ -13,6 +13,7 @@ import uproot
 from tensorboardX import SummaryWriter
 import matplotlib.pyplot as plt
 from magiconfig import ArgumentParser, MagiConfigOptions
+from torch.utils.data import DataLoader
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -26,6 +27,7 @@ parser.add_argument("--sigma", type=float, default=0.6, help='noise level')
 parser.add_argument("--outf", type=str, default="logs", help='path of log files')
 parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
+parser.add_argument("--rootfile", type=str, default="file.root", help='path of .root file')
 args = parser.parse_args()
 
 def init_weights(m):
@@ -34,50 +36,42 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
 def main():
-    args.device = torch.device('cpu')
-    # check for gpu
+
+    # choose device for model to run on 
     if torch.cuda.is_available():
-        torch.cuda.empty_cache()
         args.device = torch.device('cuda')
-        print("Switched to gpu")
+        print("Using GPU")
     else:
+        args.device = torch.device('cpu')
         print("Using CPU")
+
+    # Load dataset
+    print('Loading dataset ...\n')
+    dataset_train = RootDataset(root_file=args.rootfile)
+    loader_train = DataLoader(dataset=dataset_train)
+
+    # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_of_layers).to(device=args.device)
     model.apply(init_weights)
+
+    # Loss function
     criterion = PatchLoss()
     criterion.to(device=args.device)
+
+    #Optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    writer = SummaryWriter(args.outf)
+    
     loss_per_epoch = np.zeros(args.epochs)
-    # train the net
+    # training
     step = 0
     for epoch in range(args.epochs):
         print("Beginning epoch " + str(epoch))
-        training_files = glob.glob(os.path.join(args.training_path, '*.root'))
-        for training_file in training_files:
-            print("Opened file " + training_file)
-            branch = get_all_histograms(training_file)
-            length = np.size(branch)
-            for i in range(length):
-                model.train()
-                model.zero_grad()
-                optimizer.zero_grad()
-                # get data (ground truth)
-                data = get_bin_weights(branch, 0).copy()
-                # add noise
-                noisy = add_noise(data, args.sigma).copy()
-                # convert to tensor
-                data = torch.from_numpy(data).to(device=args.device)
-                noisy = torch.from_numpy(noisy)
-                noisy = noisy.unsqueeze(0)
-                noisy = noisy.unsqueeze(1).to(device=args.device)
-                out_train = model(noisy.float()).to(device=args.device)
-                loss = criterion(out_train.squeeze(0).squeeze(0), data, 10)
-                loss.backward()
-                optimizer.step()
-                model.eval()
-            model.eval()
-        
+        for i, data in enumerate(loader_train, 0):
+            model.train()
+            model.zero_grad()
+            img_train = data
+            print(img_train.shape)
+        """
         # validation
         validation_files = glob.glob(os.path.join(args.validation_path, '*root'))
         # peak signal to noise ratio
@@ -122,6 +116,6 @@ def main():
         noisy = noisy.unsqueeze(1)
         out_train = model(noisy.float()).squeeze(0).squeeze(0)
         np.savetxt('logs/output' + str(image) + '.txt', out_train.detach().numpy())
-        
+     """
 if __name__ == "__main__":
     main()
