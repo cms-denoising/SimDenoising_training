@@ -29,7 +29,7 @@ parser.add_argument("--epochs", type=int, default=30, help="Number of training e
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
 parser.add_argument("--trainfile", type=str, default="test.root", help='path of .root file for training')
 parser.add_argument("--valfile", type=str, default="test.root", help='path of .root file for validation')
-parser.add_argument("--batchSize", type=int, default=50, help="Training batch size")
+parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
 args = parser.parse_args()
 
 def init_weights(m):
@@ -52,6 +52,7 @@ def main():
     dataset_train = RootDataset(root_file=args.trainfile, sigma = args.sigma)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize)
     dataset_val = RootDataset(root_file=args.valfile, sigma=args.sigma)
+    val_train = DataLoader(dataset=dataset_val)
 
     # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_of_layers).to(device=args.device)
@@ -63,15 +64,17 @@ def main():
 
     #Optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, factor=0.1, patience=10, verbose=True)
+
     # training and validation
     step = 0
     losses = np.zeros(args.epochs)
+    noisy_losses = np.zeros(args.epochs)
     for epoch in range(args.epochs):
         print("Beginning epoch " + str(epoch))
         
         # training
-        loss = 0
+        sum_loss = 0
         for i, data in enumerate(loader_train, 0):
             model.train()
             model.zero_grad()
@@ -79,27 +82,34 @@ def main():
             truth, noise = data
             noise = noise.unsqueeze(1)
             output = model(noise.float().to(args.device))
-            loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 50).to(args.device)
-            print("Batch loss: " + str(loss.item()))
-        loss.backward()
-        optimizer.step()
+            batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 100).to(args.device)
+            sum_loss += batch_loss.item()
+            batch_loss.backward()
+            optimizer.step()
+            
+            model.eval()
         model.eval()
-        losses[epoch] = loss.item()
+        #losses[epoch] = sum_loss
+        #noisy_losses = noisy_loss.item()
+        #print(str(sum_loss))
         
         # TODO validation
-        for k in range(len(dataset_val)):
-            truth_val, noise_val = dataset_val[k]
-            noise_val = noise_val.unsqueeze(0).unsqueeze(0)
-            output_val = model(noise_val.float().to(args.device))
-            diff = output_val.squeeze(1) - truth_val
-            max = torch.max(diff)
+        #print("reconstructed:noisy losses")
+        """
+        val_loss = 0
+        for i, data in enumerate(val_train, 0):
+            truth_val, noise_val = data
+            output = model(noise.unsqueeze(1).float().to(args.device))
+            output_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 100).to(args.device)
+            val_loss+=output_loss.item()
             #still in progress
-    
+        scheduler.step(torch.tensor([val_loss]))
         # save the model
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
     plt.plot(losses)
-    plt.savefig("losses.png")
-    
+    plt.legend()
+    plt.savefig("loss_plot.png")
+    """
     #make some images and store to csv
     branch = get_all_histograms("test.root")
     for image in range(10):
