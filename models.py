@@ -9,8 +9,8 @@ from torch.autograd import Variable
 class DnCNN(nn.Module):
     def __init__(self, channels=1, num_of_layers=9):
         super(DnCNN, self).__init__()
-        kernel_size = 1
-        padding = 0
+        kernel_size = 3
+        padding = 1
         features = 100
         layers = []
         layers.append(nn.Conv2d(in_channels=channels, out_channels=features, kernel_size=kernel_size, padding=padding, bias=False))
@@ -42,7 +42,7 @@ class PatchLoss(nn.Module):
                 for j in range(list(output_patches.size())[1]):
                     max_patch_loss = max(max_patch_loss, f.l1_loss(output_patches[i][j], target_patches[i][j]))
             avg_loss+=max_patch_loss
-        avg_loss/=len(output)
+        avg_loss/=(list(output_patches.size())[0] * (list(output_patches.size())[1]))
         return avg_loss;
 
 

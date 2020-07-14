@@ -23,13 +23,14 @@ parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions())
 parser.add_argument("training_path", nargs="?", type=str, default="./data/training", help='path of .root data set to be used for training')
 parser.add_argument("validation_path", nargs="?", type=str, default="./data/validation", help='path of .root data set to be used for validation')
 parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers")
-parser.add_argument("--sigma", type=float, default=3, help='noise level')
+parser.add_argument("--sigma", type=float, default=20, help='noise level')
 parser.add_argument("--outf", type=str, default="logs", help='path of log files')
-parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
+parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
 parser.add_argument("--trainfile", type=str, default="test.root", help='path of .root file for training')
 parser.add_argument("--valfile", type=str, default="test.root", help='path of .root file for validation')
 parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
+parser.add_argument("--model", type=str, default=None, help="Existing model, if applicable")
 args = parser.parse_args()
 
 def init_weights(m):
@@ -56,7 +57,13 @@ def main():
 
     # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_of_layers).to(device=args.device)
-    model.apply(init_weights)
+    if (args.model == None):
+        model.apply(init_weights)
+        print("Creating new model ")
+    else:
+        print("Loading model from file " + args.model)
+        model.load_state_dict(torch.load(args.model))
+        model.eval()
 
     # Loss function
     criterion = PatchLoss()
@@ -68,13 +75,12 @@ def main():
 
     # training and validation
     step = 0
-    losses = np.zeros(args.epochs)
-    noisy_losses = np.zeros(args.epochs)
+    training_losses = np.zeros(args.epochs)
+    validation_losses = np.zeros(args.epochs)
     for epoch in range(args.epochs):
         print("Beginning epoch " + str(epoch))
-        
         # training
-        sum_loss = 0
+        train_loss = 0
         for i, data in enumerate(loader_train, 0):
             model.train()
             model.zero_grad()
@@ -82,34 +88,32 @@ def main():
             truth, noise = data
             noise = noise.unsqueeze(1)
             output = model(noise.float().to(args.device))
-            batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 100).to(args.device)
-            sum_loss += batch_loss.item()
+            batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 50).to(args.device)
+            train_loss += batch_loss.item()
             batch_loss.backward()
             optimizer.step()
-            
             model.eval()
-        model.eval()
-        #losses[epoch] = sum_loss
-        #noisy_losses = noisy_loss.item()
-        #print(str(sum_loss))
+        training_losses[epoch] = train_loss/len(dataset_train)
+        print("t: "+ str(train_loss/len(dataset_train)))
         
-        # TODO validation
-        #print("reconstructed:noisy losses")
-        """
         val_loss = 0
         for i, data in enumerate(val_train, 0):
-            truth_val, noise_val = data
-            output = model(noise.unsqueeze(1).float().to(args.device))
-            output_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), 100).to(args.device)
+            val_truth, val_noise =  data
+            val_output = model(val_noise.unsqueeze(1).float().to(args.device))
+            output_loss = criterion(val_output.squeeze(1).to(args.device), val_truth.to(args.device), 50).to(args.device)
             val_loss+=output_loss.item()
             #still in progress
         scheduler.step(torch.tensor([val_loss]))
+        validation_losses[epoch] = val_loss/len(val_train)
+        print("v: "+ str(val_loss/len(val_train)))
         # save the model
+        model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
-    plt.plot(losses)
+    training = plt.plot(training_losses, label='training')
+    validation = plt.plot(validation_losses, label='validation')
     plt.legend()
     plt.savefig("loss_plot.png")
-    """
+    
     #make some images and store to csv
     branch = get_all_histograms("test.root")
     for image in range(10):
