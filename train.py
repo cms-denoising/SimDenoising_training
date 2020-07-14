@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from torch.nn import functional as f
 import os
 import argparse
-from models import DnCNN, PatchLoss
+from models import DnCNN, PatchLoss, WeightedPatchLoss
 from dataset import *
 import glob
 import torch.optim as optim
@@ -66,7 +66,7 @@ def main():
         model.eval()
 
     # Loss function
-    criterion = PatchLoss()
+    criterion = WeightedPatchLoss()
     criterion.to(device=args.device)
 
     #Optimizer
@@ -128,7 +128,7 @@ def main():
         noisy = noisy.unsqueeze(1)
         out_train = model(noisy.float()).squeeze(0).squeeze(0)
         np.savetxt('logs/output' + str(image) + '.txt', out_train.detach().numpy())
-    
+        
 
 if __name__ == "__main__":
     main()
