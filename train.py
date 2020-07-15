@@ -66,7 +66,7 @@ def main():
         model.eval()
 
     # Loss function
-    criterion = WeightedPatchLoss()
+    criterion = PatchLoss()
     criterion.to(device=args.device)
 
     #Optimizer
@@ -126,9 +126,11 @@ def main():
         noisy = torch.from_numpy(noisy)
         noisy = noisy.unsqueeze(0)
         noisy = noisy.unsqueeze(1)
-        out_train = model(noisy.float()).squeeze(0).squeeze(0)
-        np.savetxt('logs/output' + str(image) + '.txt', out_train.detach().numpy())
-        
+        output = model(noisy.float()).squeeze(0).squeeze(0).detach().numpy()
+        np.savetxt('logs/output' + str(image) + '.txt', output)
+        truth = data.numpy()
+        diff = output-truth
+        np.savetxt('logs/diff' + str(image) + '.txt', diff)
 
 if __name__ == "__main__":
     main()

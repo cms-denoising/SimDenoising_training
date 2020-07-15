@@ -1,0 +1,39 @@
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
+from torch.nn import functional as f
+from dataset import *
+import glob
+import uproot
+from torch.utils.data import DataLoader
+
+dataset = RootDataSet(root_file='test.root', sigma = 15)
+loader = DataLoader(dataset=dataset)
+
+class PatchLoss(nn.Module):
+    def __initII(self, size_average=None, reduce=None, reduction: str = 'mean') -> None:
+        super(PatchLoss, self).__init__(size_average, reduce, reduction)
+
+    def forward(self, output, target, patch_size):
+        avg_loss = 0
+        for i in range(len(output)):
+            # split output and target images into patches
+            output_patches = output[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
+            target_patches = target[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
+            max_patch_loss = 0
+            max_patch = target_patches[0][0]
+            # calculate loss for each patch of the image
+            for i in range(list(output_patches.size())[1]):
+                if (f.l1_loss(output_patches[0][i], target_patches[0][i]) > max_patch_loss):
+                    max_patch_loss = f.l1_loss(output_patches[0][i], target_patches[0][i])
+                    max_patch = target_patches[0][i]
+            avg_loss+=max_patch_loss
+        avg_loss/=len(output)
+        return avg_loss;
+
+
+for i, data in enumerate(loader, 0):
+    truth, noise = data
+    
+
+
