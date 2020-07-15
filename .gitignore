@@ -2,3 +2,8 @@ truth*.txt
 noise*.txt
 output*.txt
 diff*.txt
+truth*.png
+noise*.png
+output*.png
+diff*.png
+
