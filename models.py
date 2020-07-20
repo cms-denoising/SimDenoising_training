@@ -38,11 +38,12 @@ class PatchLoss(nn.Module):
             target_patches = target[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
             max_patch_loss = 0
             # calculate loss for each patch of the image
-            for i in range(list(output_patches.size())[0]):
-                for j in range(list(output_patches.size())[1]):
-                    max_patch_loss = max(max_patch_loss, f.l1_loss(output_patches[i][j], target_patches[i][j]))
+            for j in range(list(output_patches.size())[0]):
+                for k in range(list(output_patches.size())[1]):
+                    max_patch_loss = max(max_patch_loss, f.l1_loss(output_patches[j][k], target_patches[j][k]))
             avg_loss+=max_patch_loss
-        avg_loss/=(list(output_patches.size())[0] * (list(output_patches.size())[1]))
+        avg_loss/=len(output)       
+        #print(avg_loss)
         return avg_loss;
 
 class WeightedPatchLoss(nn.Module):
@@ -57,11 +58,11 @@ class WeightedPatchLoss(nn.Module):
             target_patches = target[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
             weighted_loss = 0
             # calculate loss for each patch of the image
-            for i in range(list(output_patches.size())[0]):
-                for j in range(list(output_patches.size())[1]):
-                    weighted_loss += f.l1_loss(output_patches[i][j],target_patches[i][j]) * torch.mean(target_patches[i][j])
-            avg_loss+=weighted_loss
-        avg_loss/=(list(output_patches.size())[0] * (list(output_patches.size())[1]))
+            for j in range(list(output_patches.size())[0]):
+                for k in range(list(output_patches.size())[1]):
+                    weighted_loss += f.l1_loss(output_patches[j][k],target_patches[j][k]) * torch.mean(target_patches[j][k])
+            avg_loss+=weighted_loss/torch.mean(target[i])
+        avg_loss/=len(output)
         return avg_loss;
 
 

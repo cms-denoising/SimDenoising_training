@@ -5,6 +5,7 @@ import matplotlib as mpl
 import random 
 import torch.utils.data as udata
 import torch 
+import math
 
 def get_all_histograms(file_path):
     file = uproot.rootio.open(file_path)
@@ -45,6 +46,6 @@ class RootDataset(udata.Dataset):
         return len(self.histograms)
 
     def __getitem__(self, idx):
-        truth = torch.from_numpy(get_bin_weights(self.histograms, idx).copy())
-        noisy = torch.from_numpy(add_noise(get_bin_weights(self.histograms, idx), self.sigma).copy())
+        truth = torch.from_numpy((get_bin_weights(self.histograms, idx)).copy())
+        noisy = torch.from_numpy(add_noise((get_bin_weights(self.histograms, idx)), self.sigma).copy())
         return truth, noisy 
