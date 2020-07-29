@@ -6,7 +6,7 @@ from torch.nn import functional as f
 import os
 import argparse
 from models import DnCNN, PatchLoss, WeightedPatchLoss
-from dataset import *
+from dataset50 import *
 import glob
 import torch.optim as optim
 import uproot
@@ -33,6 +33,8 @@ parser.add_argument("--valfile", type=str, default="test.root", help='path of .r
 parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
 parser.add_argument("--model", type=str, default=None, help="Existing model, if applicable")
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
+parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
+parser.add_argument("--features", type=int, default=9, help="Number of channels in CNN")
 args = parser.parse_args()
 
 # store a file with configuration information in the output directory
@@ -41,6 +43,7 @@ def write_info_file():
     print("Creating information file")
     if (args.model != None):
         info_file.write("The model used was loaded from " + args.model)
+    info_file.write("\nUsing WeightedPatchLoss")
     info_file.write("\nTraining dataset file: " + args.trainfile)
     info_file.write("\nValidation dataset file: " + args.valfile)
     info_file.write("\nNoise level (sigma): " + str(args.sigma))
@@ -53,8 +56,8 @@ def write_info_file():
 # create and save truth, noisy, and reconstructed data sets and store in text files
 def make_sample_images(model):
     branch = get_all_histograms("test.root")
-    for image in range(10):
-        model.to('cpu')
+    model.to('cpu')
+    for image in range(10):        
         data = get_bin_weights(branch, image).copy()
         np.savetxt(args.outf+'/samples/truth' + str(image) + '.txt', data)
         noisy = add_noise(data, args.sigma).copy()
@@ -68,12 +71,14 @@ def make_sample_images(model):
         truth = data.numpy()
         noisy = noisy.numpy()
         diff = output-truth
+        noisy_diff = noisy-truth
         np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
         del data
         del noisy
         del output
         del diff
-
+    model.to('cuda')
+        
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -83,7 +88,7 @@ def init_weights(m):
 def main():
 
     write_info_file()
-
+    parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu 
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
@@ -100,7 +105,7 @@ def main():
     val_train = DataLoader(dataset=dataset_val, batch_size=args.batchSize)
 
     # Build model
-    model = DnCNN(channels=1, num_of_layers=args.num_of_layers).to(device=args.device)
+    model = DnCNN(channels=1, num_of_layers=args.num_of_layers, kernel_size=args.kernelSize, features=args.features).to(device=args.device)
     if (args.model == None):
         model.apply(init_weights)
         print("Creating new model ")
@@ -132,11 +137,10 @@ def main():
             truth, noise = data
             noise = noise.unsqueeze(1)
             output = model((noise.float().to(args.device)))
-            batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device), args.patchSize).to(args.device)
+            batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device)).to(args.device)
             batch_loss.backward()
             optimizer.step()
             model.eval()
-            #print(batch_loss.item())
             train_loss+=batch_loss.item()
             del truth
             del noise
@@ -149,9 +153,8 @@ def main():
         for i, data in enumerate(val_train, 0):
             val_truth, val_noise =  data
             val_output = model((val_noise.unsqueeze(1).float().to(args.device)))
-            output_loss = criterion(val_output.squeeze(1).to(args.device), val_truth.to(args.device), args.patchSize).to(args.device)
+            output_loss = criterion(val_output.squeeze(1).to(args.device), val_truth.to(args.device)).to(args.device)
             val_loss+=output_loss.item()
-            #print(output_loss.item())
             del val_truth
             del val_noise
             del val_output
@@ -163,7 +166,7 @@ def main():
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
-    
+        #make_sample_images(model)
     # plot loss/epoch for training and validation sets
     training = plt.plot(training_losses, label='training')
     validation = plt.plot(validation_losses, label='validation')

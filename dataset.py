@@ -19,6 +19,8 @@ def get_bin_weights(branch, n):
     for y in range(100):
         for x in range(100):
             data[99-x][y]=branch[n][count]
+            #if (data[99-x][y] != 0):
+                #data[99-x][y] = math.log10(data[99-x][y])
             count+=1
     # do random rotation/flips
     flipx = random.randint(0, 1)
@@ -46,6 +48,27 @@ class RootDataset(udata.Dataset):
         return len(self.histograms)
 
     def __getitem__(self, idx):
-        truth = torch.from_numpy((get_bin_weights(self.histograms, idx)).copy())
-        noisy = torch.from_numpy(add_noise((get_bin_weights(self.histograms, idx)), self.sigma).copy())
+        truth_np = get_bin_weights(self.histograms, idx).copy()
+        noisy_np = add_noise(truth_np, self.sigma).copy()
+        
+        for ix in range(truth_np.shape[0]):
+            for iy in range(truth_np.shape[1]):
+                if (truth_np[ix, iy] != 0):
+                    truth_np[ix, iy] = math.log10(truth_np[ix, iy])
+                if (noisy_np[ix, iy] != 0):
+                    noisy_np[ix, iy] = math.log10(noisy_np[ix, iy])
+        
+        truth = torch.from_numpy(truth_np)
+        noisy = torch.from_numpy(noisy_np)
         return truth, noisy 
+
+if __name__=="__main__":
+    dataset = RootDataset("test.root", 1)
+    truth, noise = dataset.__getitem__(0) 
+    plt.imshow(truth.numpy())
+    plt.colorbar()
+    plt.savefig("truth.png")
+    plt.close()
+    plt.imshow(noise.numpy())
+    plt.colorbar()
+    plt.savefig("noise.png")

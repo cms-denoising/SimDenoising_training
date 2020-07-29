@@ -7,11 +7,9 @@ import torch.nn.functional as f
 from torch.autograd import Variable
 
 class DnCNN(nn.Module):
-    def __init__(self, channels=1, num_of_layers=9):
+    def __init__(self, channels=1, num_of_layers=9, kernel_size=3, features=100):
         super(DnCNN, self).__init__()
-        kernel_size = 3
-        padding = 1
-        features = 100
+        padding = int((kernel_size-1)/2)
         layers = []
         layers.append(nn.Conv2d(in_channels=channels, out_channels=features, kernel_size=kernel_size, padding=padding, bias=False))
         layers.append(nn.ReLU(inplace=True))
@@ -30,7 +28,7 @@ class PatchLoss(nn.Module):
     def __initII(self, size_average=None, reduce=None, reduction: str = 'mean') -> None:
         super(PatchLoss, self).__init__(size_average, reduce, reduction)
 
-    def forward(self, output, target, patch_size):
+    def forward(self, output, target, patch_size=50):
         avg_loss = 0
         for i in range(len(output)):
             # split output and target images into patches
