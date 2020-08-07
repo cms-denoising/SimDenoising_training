@@ -16,3 +16,5 @@ train.py - trains the network, accepts the following command line arguments
 	 --kernelSize
 	 --features
 models.py - the CNN and the loss function(s)
+
+in tools/: various unfinished and undocumented tools for making plots, etc. 
