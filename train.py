@@ -21,20 +21,19 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # parse arguments
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions())
-parser.add_argument("training_path", nargs="?", type=str, default="./data/training", help='path of .root data set to be used for training')
-parser.add_argument("validation_path", nargs="?", type=str, default="./data/validation", help='path of .root data set to be used for validation')
-parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers")
-parser.add_argument("--sigma", type=float, default=20, help='noise level')
-parser.add_argument("--outf", type=str, default="logs", help='path of log files')
+
+parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers in the CNN")
+parser.add_argument("--sigma", type=float, default=20, help='Standard deviation of gaussian noise level')
+parser.add_argument("--outf", type=str, default="logs", help='Name of folder to be used to store outputs')
 parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
-parser.add_argument("--trainfile", type=str, default="test.root", help='path of .root file for training')
-parser.add_argument("--valfile", type=str, default="test.root", help='path of .root file for validation')
+parser.add_argument("--trainfile", type=str, default="test.root", help='Path to .root file for training')
+parser.add_argument("--valfile", type=str, default="test.root", help='Path to .root file for validation')
 parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
-parser.add_argument("--model", type=str, default=None, help="Existing model, if applicable")
+parser.add_argument("--model", type=str, default=None, help="Existing model to continue training, if applicable")
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
 parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
-parser.add_argument("--features", type=int, default=9, help="Number of channels in CNN")
+parser.add_argument("--features", type=int, default=9, help="Number of features in CNN layers")
 args = parser.parse_args()
 
 # store a file with configuration information in the output directory
