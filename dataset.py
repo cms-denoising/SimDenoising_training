@@ -1,5 +1,5 @@
 import numpy as np
-import uproot
+import uproot as up
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random 
@@ -8,9 +8,9 @@ import torch
 import math
 
 def get_all_histograms(file_path):
-    file = uproot.rootio.open(file_path)
+    file = up.open(file_path)
     tree = file["g4SimHits/tree"]
-    branch = tree.array("bin_weights")
+    branch = tree["bin_weights"].array()
     return branch;
 
 def get_bin_weights(branch, n):

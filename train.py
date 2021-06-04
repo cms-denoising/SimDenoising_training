@@ -1,4 +1,8 @@
 # modified from github.com/SaoYan/DnCNN-PyTorch/blob/master/train.py
+
+import sys
+sys.path.append(".local/lib/python3.8/site-packages")
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -6,13 +10,12 @@ from torch.nn import functional as f
 import os
 import argparse
 from models import DnCNN, PatchLoss, WeightedPatchLoss
-from dataset50 import *
+from dataset import *
 import glob
 import torch.optim as optim
-import uproot
 from tensorboardX import SummaryWriter
 import matplotlib.pyplot as plt
-from magiconfig import ArgumentParser, MagiConfigOptions
+from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 from torch.utils.data import DataLoader
 import math
 
@@ -20,7 +23,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # parse arguments
-parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions())
+parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
 parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers in the CNN")
 parser.add_argument("--sigma", type=float, default=20, help='Standard deviation of gaussian noise level')
@@ -53,8 +56,8 @@ def write_info_file():
     info_file.close()
 
 # create and save truth, noisy, and reconstructed data sets and store in text files
-def make_sample_images(model):
-    branch = get_all_histograms("test.root")
+def make_sample_images(model,file):
+    branch = get_all_histograms(file)
     model.to('cpu')
     for image in range(10):        
         data = get_bin_weights(branch, image).copy()
@@ -101,7 +104,7 @@ def main():
     dataset_train = RootDataset(root_file=args.trainfile, sigma = args.sigma)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize)
     dataset_val = RootDataset(root_file=args.valfile, sigma=math.log(args.sigma))
-    val_train = DataLoader(dataset=dataset_val, batch_size=args.batchSize)
+    loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize)
 
     # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_of_layers, kernel_size=args.kernelSize, features=args.features).to(device=args.device)
@@ -149,7 +152,7 @@ def main():
         print("t: "+ str(train_loss))
         
         val_loss = 0
-        for i, data in enumerate(val_train, 0):
+        for i, data in enumerate(loader_val, 0):
             val_truth, val_noise =  data
             val_output = model((val_noise.unsqueeze(1).float().to(args.device)))
             output_loss = criterion(val_output.squeeze(1).to(args.device), val_truth.to(args.device)).to(args.device)
@@ -172,6 +175,6 @@ def main():
     plt.legend()
     plt.savefig(args.outf + "/loss_plot.png")
     
-    make_sample_images(model)
+    make_sample_images(model, args.valfile)
 if __name__ == "__main__":
     main()
