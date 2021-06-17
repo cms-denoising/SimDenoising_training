@@ -4,7 +4,7 @@
 git clone git@github.com:kpedro88/SimDenoising_training
 cd SimDenoising_training
 [launch conda/singularity environment]
-HOME=$PWD pip install --no-cache-dir magiconfig
+HOME=$PWD pip install --user --no-cache-dir magiconfig
 ```
 
 ## Description of files:
