@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 from torch.utils.data import DataLoader
 import math
+from tqdm import tqdm
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -25,7 +26,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # parse arguments
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
-parser.add_argument("--num_of_layers", type=int, default=9, help="Number of total layers in the CNN")
+parser.add_argument("--num-layers", type=int, default=9, help="Number of total layers in the CNN")
 parser.add_argument("--sigma", type=float, default=20, help='Standard deviation of gaussian noise level')
 parser.add_argument("--outf", type=str, default="logs", help='Name of folder to be used to store outputs')
 parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
@@ -37,10 +38,11 @@ parser.add_argument("--model", type=str, default=None, help="Existing model to c
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
 parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
 parser.add_argument("--features", type=int, default=9, help="Number of features in CNN layers")
+parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
 args = parser.parse_args()
 
 # store a file with configuration information in the output directory
-def write_info_file():    
+def write_info_file():
     info_file = open(args.outf+"/info.txt", "w")
     print("Creating information file")
     if (args.model != None):
@@ -59,7 +61,7 @@ def write_info_file():
 def make_sample_images(model,file):
     branch = get_all_histograms(file)
     model.to('cpu')
-    for image in range(10):        
+    for image in range(10):
         data = get_bin_weights(branch, image).copy()
         np.savetxt(args.outf+'/samples/truth' + str(image) + '.txt', data)
         noisy = add_noise(data, args.sigma).copy()
@@ -80,7 +82,6 @@ def make_sample_images(model,file):
         del output
         del diff
     model.to('cuda')
-        
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -91,7 +92,7 @@ def main():
 
     write_info_file()
     parser.write_config(args, args.outf + "/config_out.py")
-    # choose cpu or gpu 
+    # choose cpu or gpu
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
         print("Using GPU")
@@ -102,12 +103,12 @@ def main():
     # Load dataset
     print('Loading dataset ...\n')
     dataset_train = RootDataset(root_file=args.trainfile, sigma = args.sigma)
-    loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize)
+    loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
     dataset_val = RootDataset(root_file=args.valfile, sigma=math.log(args.sigma))
-    loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize)
+    loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
     # Build model
-    model = DnCNN(channels=1, num_of_layers=args.num_of_layers, kernel_size=args.kernelSize, features=args.features).to(device=args.device)
+    model = DnCNN(channels=1, num_of_layers=args.num_layers, kernel_size=args.kernelSize, features=args.features).to(device=args.device)
     if (args.model == None):
         model.apply(init_weights)
         print("Creating new model ")
@@ -123,7 +124,7 @@ def main():
     #Optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, factor=0.1, patience=10, verbose=True)
-    
+
     # training and validation
     step = 0
     training_losses = np.zeros(args.epochs)
@@ -132,7 +133,7 @@ def main():
         print("Beginning epoch " + str(epoch))
         # training
         train_loss = 0
-        for i, data in enumerate(loader_train, 0):
+        for i, data in tqdm(enumerate(loader_train, 0), unit="batch", total=len(loader_train)):
             model.train()
             model.zero_grad()
             optimizer.zero_grad()
@@ -149,11 +150,11 @@ def main():
             del output
             del batch_loss
         training_losses[epoch] = train_loss
-        print("t: "+ str(train_loss))
-        
+        tqdm.write("loss: "+ str(train_loss))
+
         val_loss = 0
-        for i, data in enumerate(loader_val, 0):
-            val_truth, val_noise =  data
+        for i, data in tqdm(enumerate(loader_val, 0), unit="batch", total=len(loader_val)):
+            val_truth, val_noise = data
             val_output = model((val_noise.unsqueeze(1).float().to(args.device)))
             output_loss = criterion(val_output.squeeze(1).to(args.device), val_truth.to(args.device)).to(args.device)
             val_loss+=output_loss.item()
@@ -163,8 +164,8 @@ def main():
             del output_loss
         scheduler.step(torch.tensor([val_loss]))
         validation_losses[epoch] = val_loss
-        print("v: "+ str(val_loss))
-        
+        tqdm.write("val_loss: "+ str(val_loss))
+
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
@@ -174,7 +175,7 @@ def main():
     validation = plt.plot(validation_losses, label='validation')
     plt.legend()
     plt.savefig(args.outf + "/loss_plot.png")
-    
+
     make_sample_images(model, args.valfile)
 if __name__ == "__main__":
     main()
