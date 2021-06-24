@@ -1,3 +1,6 @@
+import sys
+sys.path.append(".local/lib/python3.8/site-packages")
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
