@@ -14,6 +14,8 @@ from dataset import *
 import glob
 import torch.optim as optim
 from tensorboardX import SummaryWriter
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 from torch.utils.data import DataLoader
