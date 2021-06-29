@@ -180,9 +180,9 @@ def main():
     tfileout = open("training_losses.txt","w")
     vfileout = open("validation_losses.txt","w")
     for elem in enumerate(training_losses):
-        tfileout.write(" ".join(line) + "\n")
+        tfileout.write(" ".join(elem) + "\n")
     for elem in enumerate(validation_losses):
-        tfileout.write(" ".join(line) + "\n")
+        tfileout.write(" ".join(elem) + "\n")
 
     make_sample_images(model, args.valfile)
 if __name__ == "__main__":
