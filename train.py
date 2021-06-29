@@ -179,10 +179,10 @@ def main():
     #plt.savefig(args.outf + "/loss_plot.png")
     tfileout = open("training_losses.txt","w")
     vfileout = open("validation_losses.txt","w")
-    for elem in enumerate(training_losses):
-        tfileout.write(" ".join(elem) + "\n")
+    for i, elem in enumerate(training_losses):
+        tfileout.write("%f " % training_losses[i] + "\n")
     for elem in enumerate(validation_losses):
-        tfileout.write(" ".join(elem) + "\n")
+        tfileout.write("%f " % validation_losses[i] + "\n")
 
     make_sample_images(model, args.valfile)
 if __name__ == "__main__":
