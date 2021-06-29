@@ -1,6 +1,8 @@
 #!/bin/bash
 # Runs data through train.py multiple times given a set of parameters 
 
+import argparse
+
 cat "$1" | while IFS= read -r line
 do 
     mkdir args.outf
