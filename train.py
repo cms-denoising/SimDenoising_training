@@ -172,17 +172,18 @@ def main():
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
         #make_sample_images(model)
-    # plot loss/epoch for training and validation sets
-    #training = plt.plot(training_losses, label='training')
-    #validation = plt.plot(validation_losses, label='validation')
-    #plt.legend()
-    #plt.savefig(args.outf + "/loss_plot.png")
+    plot loss/epoch for training and validation sets
+    training = plt.plot(training_losses, label='training')
+    validation = plt.plot(validation_losses, label='validation')
+    plt.legend()
+    plt.savefig(args.outf + "/loss_plot.png")
+    #write out training and validataion loss values to text files
     tfileout = open("training_losses.txt","w")
     vfileout = open("validation_losses.txt","w")
     for i, elem in enumerate(training_losses):
         tfileout.write("%f " % training_losses[i] + "\n")
     for elem in enumerate(validation_losses):
-        tfileout.write("%f " % validation_losses[i] + "\n")
+        vfileout.write("%f " % validation_losses[i] + "\n")
 
     make_sample_images(model, args.valfile)
 if __name__ == "__main__":
