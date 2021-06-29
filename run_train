@@ -3,7 +3,7 @@
 
 cat "$1" | while IFS= read -r line
 do 
-    mkdir $OUTF
-    mkdir $OUTF/sample
+    mkdir OUTF
+    mkdir OUTF/sample
     python train.py $line
 done
