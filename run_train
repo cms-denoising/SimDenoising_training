@@ -1,9 +1,9 @@
 #!/bin/bash
 # Runs data through train.py multiple times given a set of parameters 
 
-cat $1 | while IFS= read -r line
+cat $1 | while IFS= read -r line NUM_LAYERS SIGMA OUTF EPOCHS LR BATCHSIZE KERNELSIZE FEATURES NUM_WORKERS TRAINFILE VALFILE
 do 
     mkdir OUTF
     mkdir OUTF/sample
-    python train.py $line
+    python train.py --num-layers $NUM_LAYERS --sigma $SIGMA --outf $OUTF --epochs $EPOCHS --lr $LR --batchSize $BATCH_SIZE --kernelSize $KERNELSIZE --features $FEATURES --num-workers $NUM_WORKERS --trainfile $TRAINFILE --valfile $VALFILE
 done
