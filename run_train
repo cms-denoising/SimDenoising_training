@@ -1,0 +1,7 @@
+#!/bin/bash
+# Runs data through train.py multiple times given a set of parameters 
+
+cat "$1" | while IFS= read -r line
+do 
+    python train.py $line
+done
