@@ -3,5 +3,7 @@
 
 cat "$1" | while IFS= read -r line
 do 
+    mkdir args.outf
+    mkdir args.outf/sample
     python train.py $line
 done
