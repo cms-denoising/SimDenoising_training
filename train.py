@@ -40,6 +40,7 @@ parser.add_argument("--model", type=str, default=None, help="Existing model to c
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
 parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
 parser.add_argument("--features", type=int, default=9, help="Number of features in CNN layers")
+parser.add_argument("--transform", type=str, default="none", choices=RootDataset.allowed_transforms, help="transform for input data")
 parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
 args = parser.parse_args()
 
@@ -104,9 +105,9 @@ def main():
 
     # Load dataset
     print('Loading dataset ...\n')
-    dataset_train = RootDataset(root_file=args.trainfile, sigma = args.sigma)
+    dataset_train = RootDataset(root_file=args.trainfile, sigma = args.sigma, transform=args.transform)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
-    dataset_val = RootDataset(root_file=args.valfile, sigma=math.log(args.sigma))
+    dataset_val = RootDataset(root_file=args.valfile, sigma=args.sigma, transform=args.transform)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
     # Build model

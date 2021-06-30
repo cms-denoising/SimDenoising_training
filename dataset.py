@@ -2,9 +2,9 @@ import numpy as np
 import uproot as up
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import random 
+import random
 import torch.utils.data as udata
-import torch 
+import torch
 import math
 
 def get_all_histograms(file_path):
@@ -33,16 +33,19 @@ def get_bin_weights(branch, n):
     for i in range(rot):
         data = np.rot90(data)
     return data;
-    
 
 def add_noise(data, sigma):
     return np.clip(data + np.random.normal(loc=0.0,scale=sigma, size=[100,100]), a_min=0, a_max=None);
 
 class RootDataset(udata.Dataset):
-    def __init__(self, root_file, sigma):
+    allowed_transforms = ["none","normalize","log10"]
+    def __init__(self, root_file, sigma, transform="none"):
         self.root_file = root_file
         self.sigma = sigma
         self.histograms = get_all_histograms(root_file)
+        self.transform = transform
+        if self.transform not in self.allowed_transforms:
+            raise ValueError("Unknown transform: {}".format(self.transform))
 
     def __len__(self):
         return len(self.histograms)
@@ -50,21 +53,25 @@ class RootDataset(udata.Dataset):
     def __getitem__(self, idx):
         truth_np = get_bin_weights(self.histograms, idx).copy()
         noisy_np = add_noise(truth_np, self.sigma).copy()
-        
-        for ix in range(truth_np.shape[0]):
-            for iy in range(truth_np.shape[1]):
-                if (truth_np[ix, iy] != 0):
-                    truth_np[ix, iy] = math.log10(truth_np[ix, iy])
-                if (noisy_np[ix, iy] != 0):
-                    noisy_np[ix, iy] = math.log10(noisy_np[ix, iy])
-        
+
+        if self.transform=="log10":
+            truth_np = np.log10(truth_np, where=truth_np>0)
+            noisy_np = np.log10(noisy_np, where=noisy_np>0)
+        elif self.transform=="normalize":
+            means = np.mean(truth_np)
+            stdevs = np.std(truth_np)
+            truth_np -= means
+            truth_np /= stdevs
+            noisy_np -= means
+            noisy_np /= stdevs
+
         truth = torch.from_numpy(truth_np)
         noisy = torch.from_numpy(noisy_np)
-        return truth, noisy 
+        return truth, noisy
 
 if __name__=="__main__":
     dataset = RootDataset("test.root", 1)
-    truth, noise = dataset.__getitem__(0) 
+    truth, noise = dataset.__getitem__(0)
     plt.imshow(truth.numpy())
     plt.colorbar()
     plt.savefig("truth.png")
