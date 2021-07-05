@@ -39,28 +39,33 @@ def add_noise(data, sigma):
     return np.clip(data + np.random.normal(loc=0.0,scale=sigma, size=[100,100]), a_min=0, a_max=None);
 
 class RootDataset(udata.Dataset):
-    def __init__(self, root_file, sigma):
-        self.root_file = root_file
-        self.sigma = sigma
-        self.histograms = get_all_histograms(root_file)
-
+    def __init__(self, fuzzy_root, sharp_root):
+        self.sharp_root = sharp_root
+        self.fuzzy_root = fuzzy_root
+        #self.sigma = sigma
+        self.sharp_histograms = get_all_histograms(sharp_root)
+        self.fuzzy_histograms = get_all_histograms(fuzzy_root)
+        
     def __len__(self):
-        return len(self.histograms)
+        if len(self.sharp_histograms) = len(self.fuzzy_histograms)
+            return len(self.histograms)
+        else
+            print("Sharp and fuzzy dataset lengths do not match")
 
     def __getitem__(self, idx):
-        truth_np = get_bin_weights(self.histograms, idx).copy()
-        noisy_np = add_noise(truth_np, self.sigma).copy()
+        sharp_np = get_bin_weights(self.sharp_histograms, idx).copy()
+        noisy_np = get_bin_weights(self.fuzzy_histograms, idx).copy()
         
         for ix in range(truth_np.shape[0]):
             for iy in range(truth_np.shape[1]):
-                if (truth_np[ix, iy] != 0):
-                    truth_np[ix, iy] = math.log10(truth_np[ix, iy])
-                if (noisy_np[ix, iy] != 0):
-                    noisy_np[ix, iy] = math.log10(noisy_np[ix, iy])
+                if (sharp_np[ix, iy] != 0):
+                    sharp_np[ix, iy] = math.log10(sharp_np[ix, iy])
+                if (fuzzy_np[ix, iy] != 0):
+                    fuzzy_np[ix, iy] = math.log10(fuzzy_np[ix, iy])
         
-        truth = torch.from_numpy(truth_np)
-        noisy = torch.from_numpy(noisy_np)
-        return truth, noisy 
+        sharp = torch.from_numpy(sharp_np)
+        fuzzy = torch.from_numpy(fuzzy_np)
+        return sharp, fuzzy 
 
 if __name__=="__main__":
     dataset = RootDataset("test.root", 1)
