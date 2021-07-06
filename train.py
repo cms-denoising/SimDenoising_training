@@ -64,30 +64,31 @@ def write_info_file():
     info_file.close()
 
 # create and save truth, noisy, and reconstructed data sets and store in text files
-#def make_sample_images(model,file):
-#    branch = get_all_histograms(file)
-#    model.to('cpu')
-#    for image in range(10):
-#        data = get_bin_weights(branch, image).copy()
-#        np.savetxt(args.outf+'/samples/truth' + str(image) + '.txt', data)
-#        noisy = add_noise(data, args.sigma).copy()
-#        np.savetxt(args.outf+'/samples/noisy' + str(image) + '.txt', noisy)
-#        data = torch.from_numpy(data)
-#        noisy = torch.from_numpy(noisy)
-#        noisy = noisy.unsqueeze(0)
-#        noisy = noisy.unsqueeze(1)
-#        output = model(noisy.float()).squeeze(0).squeeze(0).detach().numpy()
-#        np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
-#        truth = data.numpy()
-#        noisy = noisy.numpy()
-#        diff = output-truth
-#        noisy_diff = noisy-truth
-#        np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
-#        del data
-#        del noisy
-#        del output
-#        del diff
-#    model.to('cuda')
+def make_sample_images(model,fileSharp,fileFuzz):
+    branchSharp = get_all_histograms(fileSharp)
+    branchFuzz = get_all_histograms(fileFuzz)
+    model.to('cpu')
+    for image in range(10):
+        dataSharp = get_bin_weights(branchSharp, image).copy()
+        np.savetxt(args.outf+'/samples/sharp' + str(image) + '.txt', dataSharp)
+        dataFuzz = add_noise(data, args.sigma).copy()
+        np.savetxt(args.outf+'/samples/fuzzy' + str(image) + '.txt', dataFuzz)
+        dataSharp = torch.from_numpy(dataSharp)
+        dataFuzz = torch.from_numpy(dataFuzz)
+        dataFuzz = dataFuzz.unsqueeze(0)
+        dataFuzz = dataFuzz.unsqueeze(1)
+        output = model(dataFuzz.float()).squeeze(0).squeeze(0).detach().numpy()
+        np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
+        sharp = dataSharp.numpy()
+        fuzzy = dataFuzz.numpy()
+        diff = output-sharp
+        fuzzy_diff = fuzzy-sharp
+        np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
+        del data
+        del noisy
+        del output
+        del diff
+    model.to('cuda')
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -183,6 +184,7 @@ def main():
     plt.legend()
     plt.savefig(args.outf + "/loss_plot.png")
 
-    #make_sample_images(model, args.valfile)
+    make_sample_images(model, args.valfileSharp, args.valfileFuzz)
+
 if __name__ == "__main__":
     main()
