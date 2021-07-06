@@ -52,8 +52,10 @@ def write_info_file():
     if (args.model != None):
         info_file.write("The model used was loaded from " + args.model)
     info_file.write("\nUsing WeightedPatchLoss")
-    info_file.write("\nTraining dataset file: " + args.trainfile)
-    info_file.write("\nValidation dataset file: " + args.valfile)
+    info_file.write("\nTraining high resolution dataset file: " + args.trainfileSharp)
+    info_file.write("\nTraining low resolution dataset file: " + args.trainfileFuzz)
+    info_file.write("\nValidation high resolution dataset file: " + args.valfileSharp)
+    info_file.write("\nValidation low resolution dataset file: " + args.valfileFuzz)
     info_file.write("\nNoise level (sigma): " + str(args.sigma))
     info_file.write("\nEpochs: " + str(args.epochs))
     info_file.write("\nInitial learning rate: " + str(args.lr))
@@ -62,30 +64,30 @@ def write_info_file():
     info_file.close()
 
 # create and save truth, noisy, and reconstructed data sets and store in text files
-def make_sample_images(model,file):
-    branch = get_all_histograms(file)
-    model.to('cpu')
-    for image in range(10):
-        data = get_bin_weights(branch, image).copy()
-        np.savetxt(args.outf+'/samples/truth' + str(image) + '.txt', data)
-        noisy = add_noise(data, args.sigma).copy()
-        np.savetxt(args.outf+'/samples/noisy' + str(image) + '.txt', noisy)
-        data = torch.from_numpy(data)
-        noisy = torch.from_numpy(noisy)
-        noisy = noisy.unsqueeze(0)
-        noisy = noisy.unsqueeze(1)
-        output = model(noisy.float()).squeeze(0).squeeze(0).detach().numpy()
-        np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
-        truth = data.numpy()
-        noisy = noisy.numpy()
-        diff = output-truth
-        noisy_diff = noisy-truth
-        np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
-        del data
-        del noisy
-        del output
-        del diff
-    model.to('cuda')
+#def make_sample_images(model,file):
+#    branch = get_all_histograms(file)
+#    model.to('cpu')
+#    for image in range(10):
+#        data = get_bin_weights(branch, image).copy()
+#        np.savetxt(args.outf+'/samples/truth' + str(image) + '.txt', data)
+#        noisy = add_noise(data, args.sigma).copy()
+#        np.savetxt(args.outf+'/samples/noisy' + str(image) + '.txt', noisy)
+#        data = torch.from_numpy(data)
+#        noisy = torch.from_numpy(noisy)
+#        noisy = noisy.unsqueeze(0)
+#        noisy = noisy.unsqueeze(1)
+#        output = model(noisy.float()).squeeze(0).squeeze(0).detach().numpy()
+#        np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
+#        truth = data.numpy()
+#        noisy = noisy.numpy()
+#        diff = output-truth
+#        noisy_diff = noisy-truth
+#        np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
+#        del data
+#        del noisy
+#        del output
+#        del diff
+#    model.to('cuda')
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -107,9 +109,9 @@ def main():
     # Load dataset
     print('Loading dataset ...\n')
     #can't all be trainfile... add new arguemtns above
-    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz, sigma = args.sigma)
+    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
-    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, sigma=math.log(args.sigma))
+    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
     # Build model
@@ -145,7 +147,7 @@ def main():
             sharp, fuzzy = data
             fuzzy = fuzzy.unsqueeze(1)
             output = model((fuzzy.float().to(args.device)))
-            batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device)).to(args.device)
+            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device)).to(args.device)
             batch_loss.backward()
             optimizer.step()
             model.eval()
@@ -181,6 +183,6 @@ def main():
     plt.legend()
     plt.savefig(args.outf + "/loss_plot.png")
 
-    make_sample_images(model, args.valfile)
+    #make_sample_images(model, args.valfile)
 if __name__ == "__main__":
     main()

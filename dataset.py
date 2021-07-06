@@ -47,17 +47,17 @@ class RootDataset(udata.Dataset):
         self.fuzzy_histograms = get_all_histograms(fuzzy_root)
         
     def __len__(self):
-        if len(self.sharp_histograms) = len(self.fuzzy_histograms)
-            return len(self.histograms)
-        else
+        if len(self.sharp_histograms) == len(self.fuzzy_histograms):
+            return len(self.sharp_histograms)
+        else:
             print("Sharp and fuzzy dataset lengths do not match")
 
     def __getitem__(self, idx):
         sharp_np = get_bin_weights(self.sharp_histograms, idx).copy()
-        noisy_np = get_bin_weights(self.fuzzy_histograms, idx).copy()
+        fuzzy_np = get_bin_weights(self.fuzzy_histograms, idx).copy()
         
-        for ix in range(truth_np.shape[0]):
-            for iy in range(truth_np.shape[1]):
+        for ix in range(sharp_np.shape[0]):
+            for iy in range(sharp_np.shape[1]):
                 if (sharp_np[ix, iy] != 0):
                     sharp_np[ix, iy] = math.log10(sharp_np[ix, iy])
                 if (fuzzy_np[ix, iy] != 0):
