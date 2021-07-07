@@ -65,18 +65,18 @@ def write_info_file():
 
 # create and save truth, noisy, and reconstructed data sets and store in text files
 def make_sample_images(model,fileSharp,fileFuzz):
-    branchSharp = get_all_histograms(fileSharp)
-    branchFuzz = get_all_histograms(fileFuzz)
+    branchSharp = get_branch(fileSharp)
+    branchFuzz = get_branch(fileFuzz)
     model.to('cpu')
     for image in range(10):
         dataSharp = get_bin_weights(branchSharp, image).copy()
         np.savetxt(args.outf+'/samples/sharp' + str(image) + '.txt', dataSharp)
-        dataFuzz = add_noise(data, args.sigma).copy()
+        dataFuzz = get_bin_weights(branchFuzz, image).copy()
         np.savetxt(args.outf+'/samples/fuzzy' + str(image) + '.txt', dataFuzz)
         dataSharp = torch.from_numpy(dataSharp)
         dataFuzz = torch.from_numpy(dataFuzz)
-        dataFuzz = dataFuzz.unsqueeze(0)
-        dataFuzz = dataFuzz.unsqueeze(1)
+        #dataFuzz = dataFuzz.unsqueeze(0)
+        #dataFuzz = dataFuzz.unsqueeze(1)
         output = model(dataFuzz.float()).squeeze(0).squeeze(0).detach().numpy()
         np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
         sharp = dataSharp.numpy()
@@ -96,6 +96,8 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
 def main():
+    
+    os.makedirs(args.outf+'/samples')
 
     write_info_file()
     parser.write_config(args, args.outf + "/config_out.py")
@@ -137,6 +139,8 @@ def main():
     step = 0
     training_losses = np.zeros(args.epochs)
     validation_losses = np.zeros(args.epochs)
+    train_size = len(get_branch(args.trainfileSharp))
+    val_size = len(get_branch(args.valfileSharp))
     for epoch in range(args.epochs):
         print("Beginning epoch " + str(epoch))
         # training
@@ -157,7 +161,7 @@ def main():
             del fuzzy
             del output
             del batch_loss
-        training_losses[epoch] = train_loss
+        training_losses[epoch] = train_loss/train_size
         tqdm.write("loss: "+ str(train_loss))
 
         val_loss = 0
@@ -171,18 +175,28 @@ def main():
             del val_output
             del output_loss
         scheduler.step(torch.tensor([val_loss]))
-        validation_losses[epoch] = val_loss
+        validation_losses[epoch] = val_loss/val_size
         tqdm.write("val_loss: "+ str(val_loss))
 
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
         #make_sample_images(model)
+        
     # plot loss/epoch for training and validation sets
     training = plt.plot(training_losses, label='training')
     validation = plt.plot(validation_losses, label='validation')
     plt.legend()
     plt.savefig(args.outf + "/loss_plot.png")
+    
+    #write out training and validataion loss values to text files
+    tfileout = open("training_losses.txt","w")
+    vfileout = open("validation_losses.txt","w")
+    for i, elem in enumerate(training_losses):
+        tfileout.write("%f " % training_losses[i] + "\n")
+    for elem in enumerate(validation_losses):
+        tfileout.write("%f " % validation_losses[i] + "\n")
+        vfileout.write("%f " % validation_losses[i] + "\n")
 
     make_sample_images(model, args.valfileSharp, args.valfileFuzz)
 
