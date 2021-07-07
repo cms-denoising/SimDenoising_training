@@ -63,7 +63,7 @@ def write_info_file():
     info_file.write("\nLoss function patch size: " + str(args.patchSize))
     info_file.close()
 
-# create and save truth, noisy, and reconstructed data sets and store in text files
+# create and save sharp, fuzzy, and reconstructed data sets and store in text files
 def make_sample_images(model,fileSharp,fileFuzz):
     branchSharp = get_branch(fileSharp)
     branchFuzz = get_branch(fileFuzz)
@@ -75,8 +75,8 @@ def make_sample_images(model,fileSharp,fileFuzz):
         np.savetxt(args.outf+'/samples/fuzzy' + str(image) + '.txt', dataFuzz)
         dataSharp = torch.from_numpy(dataSharp)
         dataFuzz = torch.from_numpy(dataFuzz)
-        #dataFuzz = dataFuzz.unsqueeze(0)
-        #dataFuzz = dataFuzz.unsqueeze(1)
+        dataFuzz = dataFuzz.unsqueeze(0)
+        dataFuzz = dataFuzz.unsqueeze(1)
         output = model(dataFuzz.float()).squeeze(0).squeeze(0).detach().numpy()
         np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
         sharp = dataSharp.numpy()
@@ -84,11 +84,13 @@ def make_sample_images(model,fileSharp,fileFuzz):
         diff = output-sharp
         fuzzy_diff = fuzzy-sharp
         np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
-        del data
-        del noisy
+        del sharp
+        del fuzzy
         del output
         del diff
     model.to('cuda')
+    
+#def make_plots()
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -199,6 +201,13 @@ def main():
         vfileout.write("%f " % validation_losses[i] + "\n")
 
     make_sample_images(model, args.valfileSharp, args.valfileFuzz)
+    
+    branchSharp_train = get_branch(args.trainfileSharp)
+    branchFuzz_train = get_branch(args.trainfileFuzz)
+    branchSharp_val = get_branch(args.valfileSharp)
+    branchFuzz_val = get_branch(args.valfileFuzz)
+    
+    
 
 if __name__ == "__main__":
     main()
