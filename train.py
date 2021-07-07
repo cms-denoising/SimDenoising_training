@@ -154,7 +154,7 @@ def main():
             sharp, fuzzy = data
             fuzzy = fuzzy.unsqueeze(1)
             output = model((fuzzy.float().to(args.device)))
-            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device)).to(args.device)
+            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device)).to(args.device)/total
             batch_loss.backward()
             optimizer.step()
             model.eval()
@@ -163,21 +163,21 @@ def main():
             del fuzzy
             del output
             del batch_loss
-        training_losses[epoch] = train_loss/train_size
+        training_losses[epoch] = train_loss
         tqdm.write("loss: "+ str(train_loss))
 
         val_loss = 0
         for i, data in tqdm(enumerate(loader_val, 0), unit="batch", total=len(loader_val)):
             val_sharp, val_fuzzy = data
             val_output = model((val_fuzzy.unsqueeze(1).float().to(args.device)))
-            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)
+            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)/total
             val_loss+=output_loss.item()
             del val_sharp
             del val_fuzzy
             del val_output
             del output_loss
         scheduler.step(torch.tensor([val_loss]))
-        validation_losses[epoch] = val_loss/val_size
+        validation_losses[epoch] = val_loss
         tqdm.write("val_loss: "+ str(val_loss))
 
         # save the model
