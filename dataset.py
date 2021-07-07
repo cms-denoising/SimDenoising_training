@@ -7,7 +7,7 @@ import torch.utils.data as udata
 import torch 
 import math
 
-def get_all_histograms(file_path):
+def get_branch(file_path):
     file = up.open(file_path)
     tree = file["g4SimHits/tree"]
     branch = tree["bin_weights"].array()
@@ -43,18 +43,18 @@ class RootDataset(udata.Dataset):
         self.sharp_root = sharp_root
         self.fuzzy_root = fuzzy_root
         #self.sigma = sigma
-        self.sharp_histograms = get_all_histograms(sharp_root)
-        self.fuzzy_histograms = get_all_histograms(fuzzy_root)
+        self.sharp_branch = get_branch(sharp_root)
+        self.fuzzy_branch = get_branch(fuzzy_root)
         
     def __len__(self):
-        if len(self.sharp_histograms) == len(self.fuzzy_histograms):
-            return len(self.sharp_histograms)
+        if len(self.sharp_branch) == len(self.fuzzy_branch):
+            return len(self.sharp_branch)
         else:
             print("Sharp and fuzzy dataset lengths do not match")
 
     def __getitem__(self, idx):
-        sharp_np = get_bin_weights(self.sharp_histograms, idx).copy()
-        fuzzy_np = get_bin_weights(self.fuzzy_histograms, idx).copy()
+        sharp_np = get_bin_weights(self.sharp_branch, idx).copy()
+        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx).copy()
         
         for ix in range(sharp_np.shape[0]):
             for iy in range(sharp_np.shape[1]):
