@@ -13,7 +13,14 @@ def get_branch(file_path):
     branch = tree["bin_weights"].array()
     return branch;
 
-def get_bin_weights(branch, n):
+def get_flips():
+    flipx = random.randint(0, 1)
+    flipy = random.randint(0, 1)
+    rot = random.randint(0, 3)
+    return flipx, flipy, rot
+    
+
+def get_bin_weights(branch, n, flipx, flipy, rot):
     data = np.zeros((100,100))
     count = 0
     for y in range(100):
@@ -23,9 +30,6 @@ def get_bin_weights(branch, n):
                 #data[99-x][y] = math.log10(data[99-x][y])
             count+=1
     # do random rotation/flips
-    flipx = random.randint(0, 1)
-    flipy = random.randint(0, 1)
-    rot = random.randint(0, 3)
     if (flipx):
         data = np.fliplr(data)
     if flipy:
@@ -39,12 +43,16 @@ def add_noise(data, sigma):
     return np.clip(data + np.random.normal(loc=0.0,scale=sigma, size=[100,100]), a_min=0, a_max=None);
 
 class RootDataset(udata.Dataset):
-    def __init__(self, fuzzy_root, sharp_root):
+    allowed_transforms = ["none","normalize","log10"]
+    def __init__(self, fuzzy_root, sharp_root, transform='none'):
         self.sharp_root = sharp_root
         self.fuzzy_root = fuzzy_root
         #self.sigma = sigma
         self.sharp_branch = get_branch(sharp_root)
         self.fuzzy_branch = get_branch(fuzzy_root)
+        self.transform = transform
+        if self.transform not in self.allowed_transforms:
+            raise ValueError("Unknown transform: {}".format(self.transform))
         
     def __len__(self):
         if len(self.sharp_branch) == len(self.fuzzy_branch):
@@ -53,15 +61,20 @@ class RootDataset(udata.Dataset):
             print("Sharp and fuzzy dataset lengths do not match")
 
     def __getitem__(self, idx):
-        sharp_np = get_bin_weights(self.sharp_branch, idx).copy()
-        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx).copy()
-        
-        for ix in range(sharp_np.shape[0]):
-            for iy in range(sharp_np.shape[1]):
-                if (sharp_np[ix, iy] != 0):
-                    sharp_np[ix, iy] = math.log10(sharp_np[ix, iy])
-                if (fuzzy_np[ix, iy] != 0):
-                    fuzzy_np[ix, iy] = math.log10(fuzzy_np[ix, iy])
+        flipx, flipy, rot = get_flips()
+        sharp_np = get_bin_weights(self.sharp_branch, idx, flipx, flipy, rot).copy()
+        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, flipx, flipy, rot).copy()
+                    
+        if self.transform=="log10":
+            sharp_np = np.log10(truth_np, where=truth_np>0)
+            fuzzy_np = np.log10(noisy_np, where=noisy_np>0)
+        elif self.transform=="normalize":
+            means = np.mean(sharp_np)
+            stdevs = np.std(sharp_np)
+            sharp_np -= means
+            sharp_np /= stdevs
+            fuzzy_np -= means
+            fuzzy_np /= stdevs
         
         sharp = torch.from_numpy(sharp_np)
         fuzzy = torch.from_numpy(fuzzy_np)
