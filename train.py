@@ -21,6 +21,7 @@ from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHel
 from torch.utils.data import DataLoader
 import math
 from tqdm import tqdm
+import random
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -42,7 +43,9 @@ parser.add_argument("--model", type=str, default=None, help="Existing model to c
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
 parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
 parser.add_argument("--features", type=int, default=9, help="Number of features in CNN layers")
+parser.add_argument("--transform", type=str, default="none", choices=RootDataset.allowed_transforms, help="transform for input data")
 parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
+parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
 args = parser.parse_args()
 
 # store a file with configuration information in the output directory
@@ -69,9 +72,10 @@ def make_sample_images(model,fileSharp,fileFuzz):
     branchFuzz = get_branch(fileFuzz)
     model.to('cpu')
     for image in range(10):
-        dataSharp = get_bin_weights(branchSharp, image).copy()
+        flipx, flipy, rot = get_flips()
+        dataSharp = get_bin_weights(branchSharp, image, flipx, flipy, rot).copy()
         np.savetxt(args.outf+'/samples/sharp' + str(image) + '.txt', dataSharp)
-        dataFuzz = get_bin_weights(branchFuzz, image).copy()
+        dataFuzz = get_bin_weights(branchFuzz, image, flipx, flipy, rot).copy()
         np.savetxt(args.outf+'/samples/fuzzy' + str(image) + '.txt', dataFuzz)
         dataSharp = torch.from_numpy(dataSharp)
         dataFuzz = torch.from_numpy(dataFuzz)
@@ -89,8 +93,56 @@ def make_sample_images(model,fileSharp,fileFuzz):
         del output
         del diff
     model.to('cuda')
+
+#make 2D histograms from sample data
+
+#for all four high and low quality training and validation files
+file = up.open(args.valfileSharp)
+tree = file["g4SimHits/tree"]
+x_min = tree["xmin"].array().to_numpy()[0]
+x_max = tree["xmax"].array().to_numpy()[0]
+y_min = tree["ymin"].array().to_numpy()[0]
+y_max = tree["ymax"].array().to_numpy()[0]
+x_bins = tree["xbins"].array().to_numpy()[0]
+y_bins = tree["ybins"].array().to_numpy()[0]
+
     
-#def make_plots()
+def make_plots(fin):
+    binweights = np.loadtxt(fin)
+    binarray = []
+    for i, elem in enumerate(binweights):
+        for j, elem in enumerate(binweights[i]):
+            binarray.append(binweights[i][j])
+        
+
+    #builds axes for histogram given min/max and bin number
+    x_axis = []
+    count = 0
+    x_start = x_min
+    while count < 100:
+        for i in range(100):
+            x = x_start + ((x_max-x_min)/x_bins)*float(i)
+            x_axis.append(x)
+        count = count + 1
+
+    y_axis = []
+    y_start = y_min
+    for i in range(100):
+        y = y_start + ((y_max-y_min)/y_bins)*float(i)
+        count = 0
+        while count < 100:
+            y_axis.append(y)
+            count = count + 1
+            
+    #makes histogram
+    fig = plt.subplots(figsize =(10, 7))
+    plt.hist2d(x_axis, y_axis, bins=[x_bins,y_bins], weights = binarray)
+    plt.title("Energy Deposits Projected on z plane")
+    plt.xlabel("x (cm)")
+    plt.ylabel("y (cm)")
+    plt.colorbar(label = "Energy (MeV)")
+    fin = str(fin).replace(args.outf+'/samples/','')
+    plt.savefig(args.outf+'/plots/' + str(fin).replace( '.txt', '.png'))
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -98,6 +150,7 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
 def main():
+    random.seed(args.randomseed)
     
     os.makedirs(args.outf+'/samples')
 
@@ -113,10 +166,10 @@ def main():
 
     # Load dataset
     print('Loading dataset ...\n')
-    #can't all be trainfile... add new arguemtns above
-    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz)
+    
+    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz, transform=args.transform)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
-    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz)
+    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, transform=args.transform)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
     # Build model
@@ -126,7 +179,7 @@ def main():
         print("Creating new model ")
     else:
         print("Loading model from file " + args.model)
-        model.load_state_dict(torch.load(args.model))
+        model.load_state_dict(torch.load(args.model)) 
         model.eval()
 
     # Loss function
@@ -141,8 +194,6 @@ def main():
     step = 0
     training_losses = np.zeros(args.epochs)
     validation_losses = np.zeros(args.epochs)
-    train_size = len(get_branch(args.trainfileSharp))
-    val_size = len(get_branch(args.valfileSharp))
     for epoch in range(args.epochs):
         print("Beginning epoch " + str(epoch))
         # training
@@ -154,11 +205,12 @@ def main():
             sharp, fuzzy = data
             fuzzy = fuzzy.unsqueeze(1)
             output = model((fuzzy.float().to(args.device)))
-            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device)).to(args.device)/total
+            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device)).to(args.device)
             batch_loss.backward()
             optimizer.step()
             model.eval()
             train_loss+=batch_loss.item()
+            train_loss = train_loss/len(loader_train)
             del sharp
             del fuzzy
             del output
@@ -170,8 +222,9 @@ def main():
         for i, data in tqdm(enumerate(loader_val, 0), unit="batch", total=len(loader_val)):
             val_sharp, val_fuzzy = data
             val_output = model((val_fuzzy.unsqueeze(1).float().to(args.device)))
-            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)/total
+            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)
             val_loss+=output_loss.item()
+            val_loss = val_loss/len(loader_val)
             del val_sharp
             del val_fuzzy
             del val_output
@@ -200,12 +253,17 @@ def main():
         tfileout.write("%f " % validation_losses[i] + "\n")
         vfileout.write("%f " % validation_losses[i] + "\n")
 
+    random.seed(args.randomseed)
     make_sample_images(model, args.valfileSharp, args.valfileFuzz)
     
-    branchSharp_train = get_branch(args.trainfileSharp)
-    branchFuzz_train = get_branch(args.trainfileFuzz)
-    branchSharp_val = get_branch(args.valfileSharp)
-    branchFuzz_val = get_branch(args.valfileFuzz)
+    #gets data needed to make histograms of sample data
+    #assumes that the xmin, xmax, ymin, and ymax values are the same 
+
+    
+    #makes histograms of sample data
+    os.makedirs(args.outf+'/plots')
+    for fin in os.listdir(args.outf+'/samples'):
+        make_plots(args.outf+'/samples/'+fin)
     
     
 
