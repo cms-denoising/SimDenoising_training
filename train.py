@@ -94,8 +94,9 @@ def make_sample_images(model,fileSharp,fileFuzz):
         del diff
     model.to('cuda')
 
-#make 2D histograms from sample data
 
+#gets data needed to make histograms of sample data
+#assumes that the xmin, xmax, ymin, and ymax values are the same 
 #for all four high and low quality training and validation files
 file = up.open(args.valfileSharp)
 tree = file["g4SimHits/tree"]
@@ -106,7 +107,7 @@ y_max = tree["ymax"].array().to_numpy()[0]
 x_bins = tree["xbins"].array().to_numpy()[0]
 y_bins = tree["ybins"].array().to_numpy()[0]
 
-    
+#makes histograms given bin weights listed in .txt file    
 def make_plots(fin):
     binweights = np.loadtxt(fin)
     binarray = []
@@ -114,7 +115,6 @@ def make_plots(fin):
         for j, elem in enumerate(binweights[i]):
             binarray.append(binweights[i][j])
         
-
     #builds axes for histogram given min/max and bin number
     x_axis = []
     count = 0
@@ -236,7 +236,6 @@ def main():
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
-        #make_sample_images(model)
         
     # plot loss/epoch for training and validation sets
     training = plt.plot(training_losses, label='training')
@@ -255,10 +254,6 @@ def main():
 
     random.seed(args.randomseed)
     make_sample_images(model, args.valfileSharp, args.valfileFuzz)
-    
-    #gets data needed to make histograms of sample data
-    #assumes that the xmin, xmax, ymin, and ymax values are the same 
-
     
     #makes histograms of sample data
     os.makedirs(args.outf+'/plots')

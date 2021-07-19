@@ -66,8 +66,8 @@ class RootDataset(udata.Dataset):
         fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, flipx, flipy, rot).copy()
                     
         if self.transform=="log10":
-            sharp_np = np.log10(truth_np, where=truth_np>0)
-            fuzzy_np = np.log10(noisy_np, where=noisy_np>0)
+            sharp_np = np.log10(sharp_np, where=sharp_np>0)
+            fuzzy_np = np.log10(fuzzy_np, where=fuzzy_np>0)
         elif self.transform=="normalize":
             means = np.mean(sharp_np)
             stdevs = np.std(sharp_np)
