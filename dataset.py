@@ -7,10 +7,14 @@ import torch.utils.data as udata
 import torch 
 import math
 
-def get_branch(file_path):
-    file = up.open(file_path)
-    tree = file["g4SimHits/tree"]
-    branch = tree["bin_weights"].array()
+def get_branch(file_paths):
+    file_path = file_paths.split(' ')
+    branch = []
+    for i, elem in enumerate(file_path):
+        file = up.open(file_path[i])
+        tree = file["g4SimHits/tree"]
+        events = tree["bin_weights"].array()
+        branch = np.concatenate((branch, events))
     return branch;
 
 def get_flips():

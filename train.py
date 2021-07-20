@@ -108,12 +108,26 @@ x_bins = tree["xbins"].array().to_numpy()[0]
 y_bins = tree["ybins"].array().to_numpy()[0]
 
 #makes histograms given bin weights listed in .txt file    
-def make_plots(fin):
+def make_plots(fin, data):
     binweights = np.loadtxt(fin)
     binarray = []
     for i, elem in enumerate(binweights):
         for j, elem in enumerate(binweights[i]):
             binarray.append(binweights[i][j])
+            
+    if 'output' in fin:
+        event_number = fin.replace(args.outf+'/samples/'+'output','')
+        event_number = event_number.replace('.txt','')
+        event_number = int(event_number)
+        means = np.mean(data[0][0].numpy())
+        stdevs = np.std(data[0][0].numpy())
+        
+        for i, elem in enumerate(binarray):
+            binarray[i] *= stdevs
+            binarray[i] += means
+        
+    else:
+        print('not output') 
         
     #builds axes for histogram given min/max and bin number
     x_axis = []
@@ -258,7 +272,7 @@ def main():
     #makes histograms of sample data
     os.makedirs(args.outf+'/plots')
     for fin in os.listdir(args.outf+'/samples'):
-        make_plots(args.outf+'/samples/'+fin)
+        make_plots(args.outf+'/samples/'+fin, dataset_train)
     
     
 
