@@ -76,8 +76,9 @@ class RootBasic(udata.Dataset):
             print("Sharp and fuzzy dataset lengths do not match")
             
     def __getitem__(self, idx):
-        sharp_np = self.sharp_branch.copy()[idx]
-        fuzzy_np = self.fuzzy_branch.copy()[idx]
+        flipx, flipy, rot = get_flips()
+        sharp_np = get_bin_weights(self.sharp_branch, idx, flipx, flipy, rot).copy()
+        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, flipx, flipy, rot).copy()
         return sharp_np, fuzzy_np
     
     #can only be called after __getitem__ has run in RootDataset
@@ -88,9 +89,7 @@ class RootBasic(udata.Dataset):
 
 class RootDataset(RootBasic):
     def __getitem__(self, idx):
-        flipx, flipy, rot = get_flips()
-        sharp_np = get_bin_weights(self.sharp_branch, idx, flipx, flipy, rot).copy()
-        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, flipx, flipy, rot).copy()
+        sharp_np, fuzzy_np = super().__getitem__(idx)
                     
         if self.transform=="log10":
             sharp_np = np.log10(sharp_np, where=sharp_np>0)
@@ -106,15 +105,6 @@ class RootDataset(RootBasic):
         sharp = torch.from_numpy(sharp_np)
         fuzzy = torch.from_numpy(fuzzy_np)
         return sharp, fuzzy 
-    
-    
-    def getMean(self, event):
-        mean = np.mean(get_bin_weights(self.sharp_branch, event).copy())
-        return mean
-    
-    def getStdev(self, event):
-        stdev = np.std(get_bin_weights(self.sharp_branch, event).copy())
-        return stdev
         
 if __name__=="__main__":
     dataset = RootDataset("test.root", 1)
