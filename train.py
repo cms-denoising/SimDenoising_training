@@ -67,33 +67,22 @@ def write_info_file():
     info_file.close()
 
 # create and save sharp, fuzzy, and reconstructed data sets and store in text files
-def make_sample_images(model,fileSharp,fileFuzz):
-    branchSharp = get_branch(fileSharp)
-    branchFuzz = get_branch(fileFuzz)
+def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
+    branch_arrays = RootBasic(fuzzy_root, sharp_root, transform)
+    dataset = RootDataset(fuzzy_root, sharp_root, transform)
     model.to('cpu')
-    for image in range(10):
+    random.seed(args.randomseed)
+    for event in range(10):
         flipx, flipy, rot = get_flips()
-        dataSharp = get_bin_weights(branchSharp, image, flipx, flipy, rot).copy()
-        np.savetxt(args.outf+'/samples/sharp' + str(image) + '.txt', dataSharp)
-        dataFuzz = get_bin_weights(branchFuzz, image, flipx, flipy, rot).copy()
-        np.savetxt(args.outf+'/samples/fuzzy' + str(image) + '.txt', dataFuzz)
-        dataSharp = torch.from_numpy(dataSharp)
-        dataFuzz = torch.from_numpy(dataFuzz)
-        dataFuzz = dataFuzz.unsqueeze(0)
-        dataFuzz = dataFuzz.unsqueeze(1)
-        output = model(dataFuzz.float()).squeeze(0).squeeze(0).detach().numpy()
-        np.savetxt(args.outf+'/samples/output' + str(image) + '.txt', output)
-        sharp = dataSharp.numpy()
-        fuzzy = dataFuzz.numpy()
-        diff = output-sharp
-        fuzzy_diff = fuzzy-sharp
-        np.savetxt(args.outf+'/samples/diff' + str(image) + '.txt', diff)
-        del sharp
-        del fuzzy
-        del output
-        del diff
+        sharp, fuzzy = branch_arrays[event]
+        sharp_norm, fuzzy_norm = dataset[event]
+        np.savetxt(args.outf+'/samples/sharp' + str(event) + '.txt', sharp)
+        np.savetxt(args.outf+'/samples/fuzzy' + str(event) + '.txt', fuzzy)
+        fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)
+        output = model(fuzzy_eval.float()).squeeze(0).squeeze(0).cpu().detach().numpy()
+        output_un = dataset.unnormalize(output)
+        np.savetxt(args.outf+'/samples/output' + str(event) + '.txt', output_un)
     model.to('cuda')
-
 
 #gets data needed to make histograms of sample data
 #assumes that the xmin, xmax, ymin, and ymax values are the same 
@@ -108,26 +97,12 @@ x_bins = tree["xbins"].array().to_numpy()[0]
 y_bins = tree["ybins"].array().to_numpy()[0]
 
 #makes histograms given bin weights listed in .txt file    
-def make_plots(fin, data):
+def make_plots(fin):
     binweights = np.loadtxt(fin)
     binarray = []
     for i, elem in enumerate(binweights):
         for j, elem in enumerate(binweights[i]):
             binarray.append(binweights[i][j])
-            
-    if 'output' in fin:
-        event_number = fin.replace(args.outf+'/samples/'+'output','')
-        event_number = event_number.replace('.txt','')
-        event_number = int(event_number)
-        means = np.mean(data[0][0].numpy())
-        stdevs = np.std(data[0][0].numpy())
-        
-        for i, elem in enumerate(binarray):
-            binarray[i] *= stdevs
-            binarray[i] += means
-        
-    else:
-        print('not output') 
         
     #builds axes for histogram given min/max and bin number
     x_axis = []
@@ -266,13 +241,12 @@ def main():
         tfileout.write("%f " % validation_losses[i] + "\n")
         vfileout.write("%f " % validation_losses[i] + "\n")
 
-    random.seed(args.randomseed)
-    make_sample_images(model, args.valfileSharp, args.valfileFuzz)
+    make_sample_images(args.valfileFuzz, args.valfileSharp, model, args.transform)
     
     #makes histograms of sample data
     os.makedirs(args.outf+'/plots')
     for fin in os.listdir(args.outf+'/samples'):
-        make_plots(args.outf+'/samples/'+fin, dataset_train)
+        make_plots(args.outf+'/samples/'+fin)
     
     
 
