@@ -73,7 +73,7 @@ class RootBasic(udata.Dataset):
         if len(self.sharp_branch) == len(self.fuzzy_branch):
             return len(self.sharp_branch)
         else:
-            print("Sharp and fuzzy dataset lengths do not match")
+            raise RuntimeError("Sharp and fuzzy dataset lengths do not match")
             
     def __getitem__(self, idx):
         flipx, flipy, rot = get_flips()
