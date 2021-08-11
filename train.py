@@ -129,6 +129,7 @@ def init_weights(m):
 
 def main():
     random.seed(args.randomseed)
+    torch.manual_seed(args.randomseed)
     
     os.makedirs(args.outf+'/samples')
 
@@ -231,11 +232,10 @@ def main():
     #write out training and validataion loss values to text files
     tfileout = open("training_losses.txt","w")
     vfileout = open("validation_losses.txt","w")
-    for i, elem in enumerate(training_losses):
-        tfileout.write("%f " % training_losses[i] + "\n")
+    for elem in enumerate(training_losses):
+        tfileout.write("%f " % elem + "\n")
     for elem in enumerate(validation_losses):
-        tfileout.write("%f " % validation_losses[i] + "\n")
-        vfileout.write("%f " % validation_losses[i] + "\n")
+        vfileout.write("%f " % elem + "\n")
 
     make_sample_images(args.valfileFuzz, args.valfileSharp, model, args.transform)
     
