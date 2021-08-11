@@ -33,8 +33,10 @@ parser.add_argument("--sigma", type=float, default=20, help='Standard deviation 
 parser.add_argument("--outf", type=str, default="logs", help='Name of folder to be used to store outputs')
 parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
-parser.add_argument("--trainfile", type=str, default="test.root", help='Path to .root file for training')
-parser.add_argument("--valfile", type=str, default="test.root", help='Path to .root file for validation')
+parser.add_argument("--trainfileSharp", type=str, default="test.root", help='Path to higher quality .root file for training')
+parser.add_argument("--trainfileFuzz", type=str, default="test.root", help='Path to lower quality .root file for training')
+parser.add_argument("--valfileSharp", type=str, default="test.root", help='Path to higher quality .root file for validation')
+parser.add_argument("--valfileFuzz", type=str, default="test.root", help='Path to lower quality .root file for validation')
 parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
 parser.add_argument("--model", type=str, default=None, help="Existing model to continue training, if applicable")
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
@@ -105,9 +107,12 @@ def main():
 
     # Load dataset
     print('Loading dataset ...\n')
-    dataset_train = RootDataset(root_file=args.trainfile, sigma = args.sigma, transform=args.transform)
+
+    
+    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz, sigma = args.sigma)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
-    dataset_val = RootDataset(root_file=args.valfile, sigma=args.sigma, transform=args.transform)
+    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, sigma=math.log(args.sigma))
+
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
     # Build model
@@ -140,16 +145,16 @@ def main():
             model.train()
             model.zero_grad()
             optimizer.zero_grad()
-            truth, noise = data
-            noise = noise.unsqueeze(1)
-            output = model((noise.float().to(args.device)))
+            sharp, fuzzy = data
+            fuzzy = fuzzy.unsqueeze(1)
+            output = model((fuzzy.float().to(args.device)))
             batch_loss = criterion(output.squeeze(1).to(args.device), truth.to(args.device)).to(args.device)
             batch_loss.backward()
             optimizer.step()
             model.eval()
             train_loss+=batch_loss.item()
-            del truth
-            del noise
+            del sharp
+            del fuzzy
             del output
             del batch_loss
         training_losses[epoch] = train_loss
@@ -157,12 +162,12 @@ def main():
 
         val_loss = 0
         for i, data in tqdm(enumerate(loader_val, 0), unit="batch", total=len(loader_val)):
-            val_truth, val_noise = data
-            val_output = model((val_noise.unsqueeze(1).float().to(args.device)))
-            output_loss = criterion(val_output.squeeze(1).to(args.device), val_truth.to(args.device)).to(args.device)
+            val_sharp, val_fuzzy = data
+            val_output = model((val_fuzzy.unsqueeze(1).float().to(args.device)))
+            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)
             val_loss+=output_loss.item()
-            del val_truth
-            del val_noise
+            del val_sharp
+            del val_fuzzy
             del val_output
             del output_loss
         scheduler.step(torch.tensor([val_loss]))
