@@ -96,8 +96,6 @@ class RootBasic(udata.Dataset):
 
 class RootDataset(RootBasic):
     def __getitem__(self, idx):
-        x_bins = self.x_bins
-        y_bins = self.y_bins
         sharp_np, fuzzy_np = super().__getitem__(idx)
                     
         if self.transform=="log10":

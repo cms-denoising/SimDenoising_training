@@ -19,11 +19,10 @@ parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(),
 
 parser.add_argument("--outf", type=str, default="analysis-plots", help='Name of folder to be used to store outputs')
 #how do I get rid of the defaults...?
-parser.add_argument("--numpy", type=str, default="test.npz", help='Path to .npz file of CNN-enhanced low quality (fuzzy) data')
-parser.add_argument("--fileSharp", type=str, default="test.root", help='Path to higher quality .root file for making plots')
-parser.add_argument("--fileFuzz", type=str, default="test.root", help='Path to lower quality .root file for making plots')
+parser.add_argument("--fileSharp", type=str, required=True, help='Path to higher quality .root file for making plots')
+parser.add_argument("--fileFuzz", type=str, required=True, help='Path to lower quality .root file for making plots')
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
-parser.add_argument("--transform", type=str, default="none", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
+parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
 args = parser.parse_args()
 
 def calculate_bins(fin):
@@ -236,8 +235,6 @@ def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, 
     plt.ylabel(axis_y)
     
 def main():
-    #def main():
-    #def main():
     os.makedirs(args.outf+'/analysis-plots/')
     
     x_bins, y_bins = calculate_bins(args.fileSharp)
