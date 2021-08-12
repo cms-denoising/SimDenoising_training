@@ -32,8 +32,18 @@ def calculate_bins(fin):
     x_bins = tree["xbins"].array().to_numpy()[0]
     y_bins = tree["ybins"].array().to_numpy()[0]
     return x_bins, y_bins
-    
 
+def freeze_dataset(dataset, randomseed):
+    random.seed(randomseed)
+    frozen_dataset = []
+    for i in range(len(dataset)):
+        data = []
+        sharp, fuzzy = dataset[i]
+        data.append(sharp)
+        data.append(fuzzy)
+        frozen_dataset.append(data)
+    return frozen_dataset
+    
 def calculate_ppe(dataset, outputs, event):
     ppe = []
     sharp, fuzzy = dataset[event]
@@ -50,7 +60,6 @@ def calculate_ppe(dataset, outputs, event):
     return ppe
     
 def ppe_plotdata(dataset, outputs):
-    random.seed(0)
     ppe_sharp = []
     ppe_fuzzy = []
     ppe_output = []
@@ -128,7 +137,6 @@ def centroid_plotdata(dataset, outputs, event_type, ppe_plot, x_bins, y_bins):
     return centroids
 
 def centroid_rad_data(centroid_plotdata):
-    random.seed(0)
     centroid_rads = []
     for i in range(len(centroid_plotdata[0])):
         centroid_rad = np.sqrt(centroid_plotdata[0][i]**2+centroid_plotdata[1][i]**2)
@@ -158,7 +166,6 @@ def hits_above_threshold(dataset, outputs, threshold, event, event_type, x_bins,
     return count
 
 def hits_data(dataset, outputs, threshold, event_type, x_bins, y_bins):
-    random.seed(0)
     hits = []
     for i in range(len(dataset)):
         hit = hits_above_threshold(dataset, outputs, threshold, i, event_type, x_bins, y_bins)
@@ -195,19 +202,6 @@ def dist_hits_data(dataset, outputs, threshold, event_type, x_bins, y_bins):
             dist_hits.append(elem)
     return dist_hits
 
-# def dist_hits_data(dataset, outputs, threshold, event_type):
-#     random.seed(0)
-#     hits = []
-#     length = 0
-#     for i in range(len(dataset)):
-#         event_hits = dist_above_threshold(dataset, outputs, threshold, i, event_type)
-#         hits.append(event_hits)
-#         length += len(event_hits)
-#     hits_dist = np.zeros(length)
-#     for i in range(len(dataset)):
-#         np.append(hits_dist, hits[i])
-#     return hits_dist
-
 def diff(dataset1, dataset2):
     diffset = []
     for i, elem in enumerate(dataset1):
@@ -224,10 +218,18 @@ def plot_hist(data, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=
     if plotrange:
         plt.xlim(xmin=plotrange[0], xmax=plotrange[1])
     
-def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None):
+def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None, plotline=True):
     plt.scatter(data[0], data[1], label=labels[0])
+    min_x = min(data[0])
+    max_x = max(data[0])
     if data2:
         plt.scatter(data2[0], data2[1], label=labels[1])
+        min_x = min(min(data2[0]), min_x)
+        max_x = max(max(data2[0]), max_x)
+    if plotline == True:
+        x=[min_x, max_x]
+        y=x
+        plt.plot(x, y)
     plt.title(plotname)
     plt.legend(loc='upper left')
     plt.xlabel(axis_x)
@@ -240,9 +242,8 @@ def main():
     
     x_bins, y_bins = calculate_bins(args.fileSharp)
     
-    random.seed(args.randomseed)
     outputs = np.load(args.numpy)['arr_0']
-    dataset = dat.RootBasic(args.fileFuzz, args.fileSharp, args.transform)
+    dataset = freeze_dataset(dat.RootBasic(args.fileFuzz, args.fileSharp, args.transform), args.randomseed)
 
     ppe_plot = ppe_plotdata(dataset, outputs)
     centroid_data = centroid_plotdata(dataset, outputs, 'sharp', ppe_plot, x_bins, y_bins)
@@ -260,22 +261,48 @@ def main():
     hits_sharp = dist_hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
     hits_fuzzy = dist_hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
     hits_output = dist_hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
+    
+    hit_number_sharp = hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
+    hit_number_output = hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
+    hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
 
-    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced'], plotrange=(0,2000))
+    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000))
     plt.savefig(args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
     plt.clf()
 
     plot_hist([hits_sharp,hits_output,hits_fuzzy], 'Hits Above Threshold', 'Energy in Pixel', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000))
     plt.savefig(args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
     plt.clf()
-
-    plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output),centroid_rad_data(centroid_data_fuzzy)], 'Radius of Energy Centroid', 'Radius', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'])
-    plt.savefig(args.outf+'/analysis-plots/rad-centroid-hist-hle.png')
+  
+            
+    plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], [centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Radius of Energy Centroid', 'Radius', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'])
+    plt.savefig(args.outf+'/analysis-plots/rad-centroid-scatter.png')
     plt.clf()
 
     plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], 'Radius of Energy Centroid', 'Radius', 'Number of Events', bins=5, labels = ['high-qualtiy', 'enhanced'], plotrange=(20,60))
     plt.savefig(args.outf+'/analysis-plots/rad-centroid-hist-he.png')
     plt.clf()
+    
+    plot_hist([hit_number_sharp,hit_number_output,hit_number_fuzzy], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced','low-quality'])
+    plt.savefig(args.outf+'/analysis-plots/hit-number-hle.png')
+    plt.clf()
+    
+    plot_hist([hit_number_sharp,hit_number_output], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced'])
+    plt.savefig(args.outf+'/analysis-plots/hit-number-he.png')
+    plt.clf()
+    
+#     plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)],[centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality)', 'Radius', labels=['enhanced', 'low-quality'], plotrange=None)
+#     plt.savefig(args.outf+'/analysis-plots/rad-centroid-scatter.png')
+#     plt.clf()
+    
+    plot_scatter([hit_number_sharp,hit_number_output], [hit_number_sharp,hit_number_fuzzy], 'Hits vs. Hits', 'Hits(high-quality)', 'Hits(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
+    plt.savefig(args.outf+'/analysis-plots/hit-scatter.png')
+    plt.clf()
+    
+    plot_scatter([ppe_plot[0],ppe_plot[1]],[ppe_plot[0],ppe_plot[2]], 'Energy vs. Energy', 'Energy per Pixel(high-quality)', 'Energy per Pixel(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
+    plt.savefig(args.outf+'/analysis-plots/energy-scatter.png')
+    plt.clf()
+    
     
 if __name__ == "__main__":
     main()
