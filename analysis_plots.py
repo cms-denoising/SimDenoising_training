@@ -42,7 +42,7 @@ def freeze_dataset(dataset, randomseed):
         data.append(fuzzy)
         frozen_dataset.append(data)
     return frozen_dataset
-    
+
 def calculate_ppe(dataset, outputs, event):
     ppe = []
     sharp, fuzzy = dataset[event]
@@ -57,7 +57,7 @@ def calculate_ppe(dataset, outputs, event):
     ppe.append(ppe_fuzzy)
     ppe.append(ppe_output)
     return ppe
-    
+
 def ppe_plotdata(dataset, outputs):
     ppe_sharp = []
     ppe_fuzzy = []
@@ -116,7 +116,7 @@ def centroid(dataset, outputs, event, event_type, x_bins, y_bins):
                 x_avg += x_en
         x_avg = (x_avg/x_bins)/y_bins
     return x_avg, y_avg
-            
+
 def centroid_plotdata(dataset, outputs, event_type, ppe_plot, x_bins, y_bins):
     random.seed(0)
     centroids = []
@@ -208,7 +208,7 @@ def diff(dataset1, dataset2):
         diffset.append(diff)
     return diffset
 
-def plot_hist(data, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None):
+def plot_hist(data, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None, path=None):
     plt.hist(data, bins=bins, alpha=0.75, label=labels)
     plt.legend(loc='upper left')
     plt.title(plotname)
@@ -216,8 +216,11 @@ def plot_hist(data, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=
     plt.ylabel(axis_y)
     if plotrange:
         plt.xlim(xmin=plotrange[0], xmax=plotrange[1])
-    
-def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None, plotline=True):
+    if path:
+        plt.savefig(path)
+    plt.clf()
+
+def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None, plotline=True, path=None):
     plt.scatter(data[0], data[1], label=labels[0])
     min_x = min(data[0])
     max_x = max(data[0])
@@ -233,12 +236,15 @@ def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, 
     plt.legend(loc='upper left')
     plt.xlabel(axis_x)
     plt.ylabel(axis_y)
-    
+    if path:
+        plt.savefig(path)
+    plt.clf()
+
 def main():
     os.makedirs(args.outf+'/analysis-plots/')
-    
+
     x_bins, y_bins = calculate_bins(args.fileSharp)
-    
+
     outputs = np.load(args.numpy)['arr_0']
     dataset = freeze_dataset(dat.RootBasic(args.fileFuzz, args.fileSharp, args.transform), args.randomseed)
 
@@ -247,54 +253,33 @@ def main():
     centroid_data_fuzzy = centroid_plotdata(dataset, outputs, 'fuzzy', ppe_plot, x_bins, y_bins)
     centroid_data_output = centroid_plotdata(dataset, outputs, 'output', ppe_plot, x_bins, y_bins)
 
-    plot_hist([ppe_plot[0],ppe_plot[2],ppe_plot[1],], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'])
-    plt.savefig(args.outf+'/analysis-plots/energy-per-pixel-hle.png')
-    plt.clf()
+    plot_hist([ppe_plot[0],ppe_plot[2],ppe_plot[1],], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/energy-per-pixel-hle.png')
 
-    plot_hist([ppe_plot[0],ppe_plot[2]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'])
-    plt.savefig(args.outf+'/analysis-plots/energy-per-pixel-he.png')
-    plt.clf()
+    plot_hist([ppe_plot[0],ppe_plot[2]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/energy-per-pixel-he.png')
 
     hits_sharp = dist_hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
     hits_fuzzy = dist_hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
     hits_output = dist_hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
-    
+
     hit_number_sharp = hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
     hit_number_output = hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
     hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
 
-    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000))
-    plt.savefig(args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
-    plt.clf()
+    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
 
-    plot_hist([hits_sharp,hits_output,hits_fuzzy], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000))
-    plt.savefig(args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
-    plt.clf()
+    plot_hist([hits_sharp,hits_output,hits_fuzzy], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
 
-    plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], 'Radius of Energy Centroid', 'Radius (pixels)', 'Number of Events', bins=5, labels = ['high-qualtiy', 'enhanced'], plotrange=(20,60))
-    plt.savefig(args.outf+'/analysis-plots/rad-centroid-hist-he.png')
-    plt.clf()
-    
-    plot_hist([hit_number_sharp,hit_number_output,hit_number_fuzzy], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced','low-quality'])
-    plt.savefig(args.outf+'/analysis-plots/hit-number-hle.png')
-    plt.clf()
-    
-    plot_hist([hit_number_sharp,hit_number_output], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced'])
-    plt.savefig(args.outf+'/analysis-plots/hit-number-he.png')
-    plt.clf()
-    
-    plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)],[centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality) (pixels)', 'Radius (pixels)', labels=['enhanced', 'low-quality'], plotrange=None)
-    plt.savefig(args.outf+'/analysis-plots/rad-centroid-scatter.png')
-    plt.clf()
-    
-    plot_scatter([hit_number_sharp,hit_number_output], [hit_number_sharp,hit_number_fuzzy], 'Hits vs. Hits', 'Hits(high-quality)', 'Hits(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
-    plt.savefig(args.outf+'/analysis-plots/hit-scatter.png')
-    plt.clf()
-    
-    plot_scatter([ppe_plot[0],ppe_plot[1]],[ppe_plot[0],ppe_plot[2]], 'Energy vs. Energy', 'Energy per Pixel(high-quality) (MeV)', 'Energy per Pixel(low-quality) (MeV)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
-    plt.savefig(args.outf+'/analysis-plots/energy-scatter.png')
-    plt.clf()
-    
-    
+    plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], 'Radius of Energy Centroid', 'Radius (pixels)', 'Number of Events', bins=5, labels = ['high-qualtiy', 'enhanced'], plotrange=(20,60), path=args.outf+'/analysis-plots/rad-centroid-hist-he.png')
+
+    plot_hist([hit_number_sharp,hit_number_output,hit_number_fuzzy], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/hit-number-hle.png')
+
+    plot_hist([hit_number_sharp,hit_number_output], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/hit-number-he.png')
+
+    plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)],[centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality) (pixels)', 'Radius (pixels)', labels=['enhanced', 'low-quality'], plotrange=None, path=args.outf+'/analysis-plots/rad-centroid-scatter.png')
+
+    plot_scatter([hit_number_sharp,hit_number_output], [hit_number_sharp,hit_number_fuzzy], 'Hits vs. Hits', 'Hits(high-quality)', 'Hits(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True, path=args.outf+'/analysis-plots/hit-scatter.png')
+
+    plot_scatter([ppe_plot[0],ppe_plot[1]],[ppe_plot[0],ppe_plot[2]], 'Energy vs. Energy', 'Energy per Pixel(high-quality) (MeV)', 'Energy per Pixel(low-quality) (MeV)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True, path=args.outf+'/analysis-plots/energy-scatter.png')
+
 if __name__ == "__main__":
     main()
