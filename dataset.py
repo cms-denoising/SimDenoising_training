@@ -42,10 +42,9 @@ def get_tree(file_path):
     return tree;
 
 def get_branch(file_paths):
-    file_path = file_paths.split(' ')
     branch = []
-    for i, elem in enumerate(file_path):
-        tree = get_tree(file_path[i])
+    for i, elem in enumerate(file_paths):
+        tree = get_tree(file_paths[i])
         events = tree["bin_weights"].array()
         branch = np.concatenate((branch, events))
     return branch;
