@@ -3,7 +3,8 @@ import glob
 
 energy = 850
 num_events = '*'
-num_files = 10
+num_files = 2
+#currently only works with multiple files ... ?
 
 if (num_files  % 2) == 0:
     num_files = int(num_files/2)
@@ -42,7 +43,7 @@ config.kernelSize = 3
 config.lr = 0.001
 config.num_layers = 9
 config.num_workers = 8
-config.outf = 'out-train-aug8-2'
+config.outf = 'out-train-aug12-1'
 config.transform = 'normalize'
 config.patchSize = 100
 config.sigma = 20

@@ -102,8 +102,8 @@ class RootDataset(RootBasic):
             sharp_np = np.log10(sharp_np, where=sharp_np>0)
             fuzzy_np = np.log10(fuzzy_np, where=fuzzy_np>0)
         elif self.transform=="normalize":
-            self.means = np.mean(sharp_np)
-            self.stdevs = np.std(sharp_np)
+            self.means = np.mean(fuzzy_np)
+            self.stdevs = np.std(fuzzy_np)
             sharp_np -= self.means
             sharp_np /= self.stdevs
             fuzzy_np -= self.means
