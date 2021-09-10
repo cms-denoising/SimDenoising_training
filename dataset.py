@@ -58,8 +58,8 @@ class RootBasic(udata.Dataset):
         self.fuzzy_root = fuzzy_root
         self.sharp_branch = get_branch(sharp_root)
         self.fuzzy_branch = get_branch(fuzzy_root)
-        self.sharp_tree = get_tree(self.sharp_root)
-        self.fuzzy_tree = get_tree(self.fuzzy_root)
+        self.sharp_tree = get_tree(self.sharp_root[0])
+        self.fuzzy_tree = get_tree(self.fuzzy_root[0])
         #assumes bin configuration is the same for all files
         self.x_bins = self.sharp_tree["xbins"].array().to_numpy()[0]
         self.y_bins = self.sharp_tree["ybins"].array().to_numpy()[0]

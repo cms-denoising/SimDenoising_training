@@ -48,24 +48,6 @@ parser.add_argument("--num-workers", type=int, default=8, help="Number of worker
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
 args = parser.parse_args()
 
-# store a file with configuration information in the output directory
-def write_info_file():
-    info_file = open(args.outf+"/info.txt", "w")
-    print("Creating information file")
-    if (args.model != None):
-        info_file.write("The model used was loaded from " + args.model)
-    info_file.write("\nUsing WeightedPatchLoss")
-    info_file.write("\nTraining high resolution dataset file: " + args.trainfileSharp)
-    info_file.write("\nTraining low resolution dataset file: " + args.trainfileFuzz)
-    info_file.write("\nValidation high resolution dataset file: " + args.valfileSharp)
-    info_file.write("\nValidation low resolution dataset file: " + args.valfileFuzz)
-    info_file.write("\nNoise level (sigma): " + str(args.sigma))
-    info_file.write("\nEpochs: " + str(args.epochs))
-    info_file.write("\nInitial learning rate: " + str(args.lr))
-    info_file.write("\nTraining batch size: " + str(args.batchSize))
-    info_file.write("\nLoss function patch size: " + str(args.patchSize))
-    info_file.close()
-
 # create and save sharp, fuzzy, and reconstructed data sets and store in text files
 def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
     branch_arrays = RootBasic(fuzzy_root, sharp_root, transform)
@@ -133,7 +115,6 @@ def main():
     
     os.makedirs(args.outf+'/samples')
 
-    write_info_file()
     parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu
     if torch.cuda.is_available():
