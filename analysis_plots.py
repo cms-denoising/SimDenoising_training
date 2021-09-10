@@ -18,7 +18,7 @@ from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHel
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
 parser.add_argument("--outf", type=str, default="analysis-plots", help='Name of folder to be used to store outputs')
-#how do I get rid of the defaults...?
+parser.add_argument("--numpy", type=str, default="test.npz", help='Path to .npz file of CNN-enhanced low quality (fuzzy) data')
 parser.add_argument("--fileSharp", type=str, required=True, help='Path to higher quality .root file for making plots')
 parser.add_argument("--fileFuzz", type=str, required=True, help='Path to lower quality .root file for making plots')
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
@@ -247,11 +247,11 @@ def main():
     centroid_data_fuzzy = centroid_plotdata(dataset, outputs, 'fuzzy', ppe_plot, x_bins, y_bins)
     centroid_data_output = centroid_plotdata(dataset, outputs, 'output', ppe_plot, x_bins, y_bins)
 
-    plot_hist([ppe_plot[0],ppe_plot[2],ppe_plot[1],], 'Energy per Pixel', 'Energy', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'])
+    plot_hist([ppe_plot[0],ppe_plot[2],ppe_plot[1],], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'])
     plt.savefig(args.outf+'/analysis-plots/energy-per-pixel-hle.png')
     plt.clf()
 
-    plot_hist([ppe_plot[0],ppe_plot[2]], 'Energy per Pixel', 'Energy', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'])
+    plot_hist([ppe_plot[0],ppe_plot[2]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'])
     plt.savefig(args.outf+'/analysis-plots/energy-per-pixel-he.png')
     plt.clf()
 
@@ -263,20 +263,15 @@ def main():
     hit_number_output = hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
     hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
 
-    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000))
+    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000))
     plt.savefig(args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
     plt.clf()
 
-    plot_hist([hits_sharp,hits_output,hits_fuzzy], 'Hits Above Threshold', 'Energy in Pixel', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000))
+    plot_hist([hits_sharp,hits_output,hits_fuzzy], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000))
     plt.savefig(args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
     plt.clf()
-  
-            
-    plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], [centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Radius of Energy Centroid', 'Radius', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'])
-    plt.savefig(args.outf+'/analysis-plots/rad-centroid-scatter.png')
-    plt.clf()
 
-    plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], 'Radius of Energy Centroid', 'Radius', 'Number of Events', bins=5, labels = ['high-qualtiy', 'enhanced'], plotrange=(20,60))
+    plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], 'Radius of Energy Centroid', 'Radius (pixels)', 'Number of Events', bins=5, labels = ['high-qualtiy', 'enhanced'], plotrange=(20,60))
     plt.savefig(args.outf+'/analysis-plots/rad-centroid-hist-he.png')
     plt.clf()
     
@@ -288,15 +283,15 @@ def main():
     plt.savefig(args.outf+'/analysis-plots/hit-number-he.png')
     plt.clf()
     
-#     plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)],[centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality)', 'Radius', labels=['enhanced', 'low-quality'], plotrange=None)
-#     plt.savefig(args.outf+'/analysis-plots/rad-centroid-scatter.png')
-#     plt.clf()
+    plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)],[centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality) (pixels)', 'Radius (pixels)', labels=['enhanced', 'low-quality'], plotrange=None)
+    plt.savefig(args.outf+'/analysis-plots/rad-centroid-scatter.png')
+    plt.clf()
     
     plot_scatter([hit_number_sharp,hit_number_output], [hit_number_sharp,hit_number_fuzzy], 'Hits vs. Hits', 'Hits(high-quality)', 'Hits(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
     plt.savefig(args.outf+'/analysis-plots/hit-scatter.png')
     plt.clf()
     
-    plot_scatter([ppe_plot[0],ppe_plot[1]],[ppe_plot[0],ppe_plot[2]], 'Energy vs. Energy', 'Energy per Pixel(high-quality)', 'Energy per Pixel(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
+    plot_scatter([ppe_plot[0],ppe_plot[1]],[ppe_plot[0],ppe_plot[2]], 'Energy vs. Energy', 'Energy per Pixel(high-quality) (MeV)', 'Energy per Pixel(low-quality) (MeV)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True)
     plt.savefig(args.outf+'/analysis-plots/energy-scatter.png')
     plt.clf()
     
