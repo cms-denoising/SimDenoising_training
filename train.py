@@ -211,12 +211,10 @@ def main():
     plt.savefig(args.outf + "/loss_plot.png")
     
     #write out training and validataion loss values to text files
-    tfileout = open("training_losses.txt","w")
-    vfileout = open("validation_losses.txt","w")
-    for elem in enumerate(training_losses):
-        tfileout.write("%f " % elem + "\n")
-    for elem in enumerate(validation_losses):
-        vfileout.write("%f " % elem + "\n")
+    with open(args.outf + "/training_losses.txt","w") as tfileout:
+        tfileout.write("\n".join("{}".format(tl) for tl in training_losses)+"\n")
+    with open(args.outf + "/validation_losses.txt","w") as vfileout:
+        vfileout.write("\n".join("{}".format(vl) for vl in validation_losses)+"\n")
 
     make_sample_images(args.valfileFuzz, args.valfileSharp, model, args.transform)
     
