@@ -19,8 +19,8 @@ parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(),
 
 parser.add_argument("--outf", type=str, default="analysis-plots", help='Name of folder to be used to store outputs')
 parser.add_argument("--numpy", type=str, default="test.npz", help='Path to .npz file of CNN-enhanced low quality (fuzzy) data')
-parser.add_argument("--fileSharp", type=str, required=True, help='Path to higher quality .root file for making plots')
-parser.add_argument("--fileFuzz", type=str, required=True, help='Path to lower quality .root file for making plots')
+parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
+parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
 parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
 args = parser.parse_args()
@@ -241,9 +241,9 @@ def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, 
     plt.clf()
 
 def main():
-    os.makedirs(args.outf+'/analysis-plots/')
+    os.makedirs(args.outf+'/analysis-plots/',exist_ok=True)
 
-    x_bins, y_bins = calculate_bins(args.fileSharp)
+    x_bins, y_bins = calculate_bins(args.fileSharp[0])
 
     outputs = np.load(args.numpy)['arr_0']
     dataset = freeze_dataset(dat.RootBasic(args.fileFuzz, args.fileSharp, args.transform), args.randomseed)
