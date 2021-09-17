@@ -65,8 +65,9 @@ def main():
     for i, data in enumerate(loader):
         _, fuzzy = data
         fuzzy = fuzzy.unsqueeze(1).float().to(device)
-        output = model(fuzzy)
-        outputs.append(output.squeeze(0).squeeze(0).cpu().detach().numpy())
+        output = model(fuzzy).squeeze(1).cpu().detach().numpy()
+        if i==0: outputs = output
+        else: outputs = np.concatenate((outputs,output))
         del _
         del fuzzy
         del output
