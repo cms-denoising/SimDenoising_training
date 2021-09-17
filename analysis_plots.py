@@ -11,19 +11,9 @@ import numpy as np
 import torch.utils.data as udata
 import matplotlib.pyplot as plt
 import random
-import os
+import os, time
 import dataset as dat
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
-
-parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
-
-parser.add_argument("--outf", type=str, default="analysis-plots", help='Name of folder to be used to store outputs')
-parser.add_argument("--numpy", type=str, default="test.npz", help='Path to .npz file of CNN-enhanced low quality (fuzzy) data')
-parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
-parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
-parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
-parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
-args = parser.parse_args()
 
 def calculate_bins(fin):
     upfile = up.open(fin)
@@ -241,17 +231,37 @@ def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, 
     plt.clf()
 
 def main():
+    parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
+
+    parser.add_argument("--outf", type=str, default="analysis-plots", help='Name of folder to be used to store outputs')
+    parser.add_argument("--numpy", type=str, default="test.npz", help='Path to .npz file of CNN-enhanced low quality (fuzzy) data')
+    parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
+    parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
+    parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
+    parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
+    parser.add_argument("--verbose", default=False, action="store_true", help="enable verbose printouts")
+    args = parser.parse_args()
+
     os.makedirs(args.outf+'/analysis-plots/',exist_ok=True)
 
+    t1 = time.time()
+    if args.verbose: print("Started")
     x_bins, y_bins = calculate_bins(args.fileSharp[0])
 
     outputs = np.load(args.numpy)['arr_0']
     dataset = freeze_dataset(dat.RootBasic(args.fileFuzz, args.fileSharp, args.transform), args.randomseed)
+    t2 = time.time()
+    if args.verbose: print("Loaded datasets ({} s)".format(t2-t1))
 
     ppe_plot = ppe_plotdata(dataset, outputs)
+    t3 = time.time()
+    if args.verbose: print("Computed ppe ({} s)".format(t3-t2))
+
     centroid_data = centroid_plotdata(dataset, outputs, 'sharp', ppe_plot, x_bins, y_bins)
     centroid_data_fuzzy = centroid_plotdata(dataset, outputs, 'fuzzy', ppe_plot, x_bins, y_bins)
     centroid_data_output = centroid_plotdata(dataset, outputs, 'output', ppe_plot, x_bins, y_bins)
+    t4 = time.time()
+    if args.verbose: print("Computed centroid ({} s)".format(t4-t3))
 
     plot_hist([ppe_plot[0],ppe_plot[2],ppe_plot[1],], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/energy-per-pixel-hle.png')
 
@@ -260,10 +270,14 @@ def main():
     hits_sharp = dist_hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
     hits_fuzzy = dist_hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
     hits_output = dist_hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
+    t5 = time.time()
+    if args.verbose: print("Computed hits ({} s)".format(t5-t4))
 
     hit_number_sharp = hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
     hit_number_output = hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
     hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
+    t6 = time.time()
+    if args.verbose: print("Computed nhits ({} s)".format(t6-t5))
 
     plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
 
