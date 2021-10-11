@@ -9,6 +9,8 @@ from models import DnCNN, PatchLoss, WeightedPatchLoss
 import uproot as up
 import numpy as np
 import torch.utils.data as udata
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import random
 import os, time
