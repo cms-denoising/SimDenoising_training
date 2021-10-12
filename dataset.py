@@ -55,14 +55,14 @@ class RootDataset(udata.Dataset):
         # reshape to image tensor
         self.sharp_branch = self.sharp_branch.reshape((self.sharp_branch.shape[0],self.nfeatures,self.xbins,self.ybins))
         self.fuzzy_branch = self.fuzzy_branch.reshape((self.fuzzy_branch.shape[0],self.nfeatures,self.xbins,self.ybins))
-        # apply transform if any (before changing shapes)
+        # apply transform if any
         if self.transform=="log10":
             self.sharp_branch = np.log10(self.sharp_branch, where=self.sharp_branch>0)
             self.fuzzy_branch = np.log10(self.fuzzy_branch, where=self.fuzzy_branch>0)
         elif self.transform.startswith("normalize"):
             norm_branch = self.sharp_branch if self.transform=="normalizeSharp" else self.fuzzy_branch
-            self.means = np.average(norm_branch, axis=0)
-            self.stdevs = np.std(norm_branch, axis=0)
+            self.means = np.average(norm_branch, axis=(1,2,3))[:,None,None,None]
+            self.stdevs = np.std(norm_branch, axis=(1,2,3))[:,None,None,None]
             self.sharp_branch = np.divide(self.sharp_branch-self.means,self.stdevs,where=self.stdevs!=0)
             self.fuzzy_branch = np.divide(self.fuzzy_branch-self.means,self.stdevs,where=self.stdevs!=0)
         # combine on feature axis to apply random rotation/flips consistently for both datasets
@@ -80,8 +80,11 @@ class RootDataset(udata.Dataset):
             raise RuntimeError("Sharp and fuzzy dataset lengths do not match")
 
     def __getitem__(self, idx):
-        return self.unnormalize(self.sharp_branch[idx],idx=idx if self.do_unnormalize else None), \
-               self.unnormalize(self.fuzzy_branch[idx],idx=idx if self.do_unnormalize else None)
+        if self.do_unnormalize:
+            return self.unnormalize(self.sharp_branch[idx],idx=idx).squeeze(), \
+                   self.unnormalize(self.fuzzy_branch[idx],idx=idx).squeeze()
+        else:
+            return self.sharp_branch[idx], self.fuzzy_branch[idx]
 
     # assumes array is same size as inputs
     def unnormalize(self,array,idx=None):
@@ -91,11 +94,15 @@ class RootDataset(udata.Dataset):
             if idx==None:
                 array = array*self.stdevs+self.means
             else:
-                array = array*self.stdevs[idx]+self.means[idx]
+                array = array*self.stdevs[idx].squeeze()+self.means[idx].squeeze()
         return array
 
 if __name__=="__main__":
     dataset = RootDataset([sys.argv[1]], [sys.argv[2]], "normalize")
+    truth, noise = dataset.__getitem__(0)
+    print(truth,truth.shape)
+    print(noise,noise.shape)
+    dataset.do_unnormalize = True
     truth, noise = dataset.__getitem__(0)
     print(truth,truth.shape)
     print(noise,noise.shape)
