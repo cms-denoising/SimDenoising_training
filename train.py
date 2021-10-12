@@ -50,25 +50,26 @@ args = parser.parse_args()
 
 # create and save sharp, fuzzy, and reconstructed data sets and store in text files
 def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
-    branch_arrays = RootBasic(fuzzy_root, sharp_root, transform)
     dataset = RootDataset(fuzzy_root, sharp_root, transform)
     model.to('cpu')
-    random.seed(args.randomseed) #makes random orientations match those from training
+    # makes random orientations match those from training
+    random.seed(args.randomseed)
+    torch.manual_seed(args.randomseed)
     for event in range(10):
         sharp_norm, fuzzy_norm = dataset[event]
         fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)
         output = model(fuzzy_eval.float()).squeeze(0).squeeze(0).cpu().detach().numpy()
-        output_un = dataset.unnormalize(output)
+        output_un = dataset.unnormalize(output,event)
         np.savetxt(args.outf+'/samples/output' + str(event) + '.txt', output_un)
-    random.seed(args.randomseed)
+    dataset.do_unnormalize = True
     for event in range(10):
-        sharp, fuzzy = branch_arrays[event]
+        sharp, fuzzy = dataset[event]
         np.savetxt(args.outf+'/samples/sharp' + str(event) + '.txt', sharp)
         np.savetxt(args.outf+'/samples/fuzzy' + str(event) + '.txt', fuzzy)
     model.to('cuda')
 
 #makes histograms given bin weights listed in .txt file
-def make_plots(fin, x_min, x_max, x_bins, y_min, y_max, y_bins):
+def make_plots(fin, xmin, xmax, xbins, ymin, ymax, ybins):
     binweights = np.loadtxt(fin)
     binarray = []
     for i, elem in enumerate(binweights):
@@ -76,27 +77,27 @@ def make_plots(fin, x_min, x_max, x_bins, y_min, y_max, y_bins):
             binarray.append(binweights[i][j])
 
     #builds axes for histogram given min/max and bin number
-    x_axis = []
+    xaxis = []
     count = 0
-    x_start = x_min
-    while count < y_bins:
-        for i in range(x_bins):
-            x = x_start + ((x_max-x_min)/x_bins)*float(i)
-            x_axis.append(x)
+    xstart = xmin
+    while count < ybins:
+        for i in range(xbins):
+            x = xstart + ((xmax-xmin)/xbins)*float(i)
+            xaxis.append(x)
         count = count + 1
 
-    y_axis = []
-    y_start = y_min
-    for i in range(y_bins):
-        y = y_start + ((y_max-y_min)/y_bins)*float(i)
+    yaxis = []
+    ystart = ymin
+    for i in range(ybins):
+        y = ystart + ((ymax-ymin)/ybins)*float(i)
         count = 0
-        while count < x_bins:
-            y_axis.append(y)
+        while count < xbins:
+            yaxis.append(y)
             count = count + 1
 
     #makes histogram
     fig = plt.subplots(figsize =(10, 7))
-    plt.hist2d(x_axis, y_axis, bins=[x_bins,y_bins], weights = binarray)
+    plt.hist2d(xaxis, yaxis, bins=[xbins,ybins], weights = binarray)
     plt.title("Energy Deposits Projected on z plane")
     plt.xlabel("x (cm)")
     plt.ylabel("y (cm)")
@@ -132,12 +133,12 @@ def main():
     dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, transform=args.transform)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
-    x_bins = dataset_train.x_bins
-    y_bins = dataset_train.y_bins
-    x_min = dataset_train.x_min
-    x_max = dataset_train.x_max
-    y_min = dataset_train.y_min
-    y_max = dataset_train.y_max
+    xbins = dataset_train.xbins
+    ybins = dataset_train.ybins
+    xmin = dataset_train.xmin
+    xmax = dataset_train.xmax
+    ymin = dataset_train.ymin
+    ymax = dataset_train.ymax
 
     # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_layers, kernel_size=args.kernelSize, features=args.features).to(device=args.device)
@@ -221,7 +222,7 @@ def main():
     #makes histograms of sample data
     os.makedirs(args.outf+'/plots')
     for fin in os.listdir(args.outf+'/samples'):
-        make_plots(args.outf+'/samples/'+fin, x_min, x_max, x_bins, y_min, y_max, y_bins)
+        make_plots(args.outf+'/samples/'+fin, xmin, xmax, xbins, ymin, ymax, ybins)
 
 if __name__ == "__main__":
     main()
