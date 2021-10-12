@@ -12,7 +12,6 @@ def get_flips():
     flipy = random.randint(0, 1)
     rot = random.randint(0, 3)
     return flipx, flipy, rot
-    
 
 def get_bin_weights(branch, n, x_bins, y_bins, flipx = None, flipy=None, rot=None):
     data = np.zeros((x_bins,y_bins))
@@ -78,7 +77,7 @@ class RootBasic(udata.Dataset):
             return len(self.sharp_branch)
         else:
             raise RuntimeError("Sharp and fuzzy dataset lengths do not match")
-            
+
     def __getitem__(self, idx):
         flipx, flipy, rot = get_flips()
         x_bins = self.x_bins
@@ -86,17 +85,17 @@ class RootBasic(udata.Dataset):
         sharp_np = get_bin_weights(self.sharp_branch, idx, x_bins, y_bins, flipx, flipy, rot).copy()
         fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, x_bins, y_bins, flipx, flipy, rot).copy()
         return sharp_np, fuzzy_np
-    
+
     #can only be called after __getitem__ has run in RootDataset
     def unnormalize(self,array):
         array *= self.stdevs
-        array += self.means 
+        array += self.means
         return array
 
 class RootDataset(RootBasic):
     def __getitem__(self, idx):
         sharp_np, fuzzy_np = super().__getitem__(idx)
-                    
+
         if self.transform=="log10":
             sharp_np = np.log10(sharp_np, where=sharp_np>0)
             fuzzy_np = np.log10(fuzzy_np, where=fuzzy_np>0)
@@ -109,10 +108,10 @@ class RootDataset(RootBasic):
             sharp_np /= self.stdevs
             fuzzy_np -= self.means
             fuzzy_np /= self.stdevs
-        
+
         sharp = torch.from_numpy(sharp_np)
         fuzzy = torch.from_numpy(fuzzy_np)
-        return sharp, fuzzy 
+        return sharp, fuzzy
 
 if __name__=="__main__":
     dataset = RootDataset("test.root", 1)

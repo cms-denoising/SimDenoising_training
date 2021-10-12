@@ -67,14 +67,14 @@ def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
         np.savetxt(args.outf+'/samples/fuzzy' + str(event) + '.txt', fuzzy)
     model.to('cuda')
 
-#makes histograms given bin weights listed in .txt file    
+#makes histograms given bin weights listed in .txt file
 def make_plots(fin, x_min, x_max, x_bins, y_min, y_max, y_bins):
     binweights = np.loadtxt(fin)
     binarray = []
     for i, elem in enumerate(binweights):
         for j, elem in enumerate(binweights[i]):
             binarray.append(binweights[i][j])
-        
+
     #builds axes for histogram given min/max and bin number
     x_axis = []
     count = 0
@@ -93,7 +93,7 @@ def make_plots(fin, x_min, x_max, x_bins, y_min, y_max, y_bins):
         while count < x_bins:
             y_axis.append(y)
             count = count + 1
-            
+
     #makes histogram
     fig = plt.subplots(figsize =(10, 7))
     plt.hist2d(x_axis, y_axis, bins=[x_bins,y_bins], weights = binarray)
@@ -112,7 +112,7 @@ def init_weights(m):
 def main():
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
-    
+
     os.makedirs(args.outf+'/samples')
 
     parser.write_config(args, args.outf + "/config_out.py")
@@ -126,12 +126,12 @@ def main():
 
     # Load dataset
     print('Loading dataset ...\n')
-    
+
     dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz, transform=args.transform)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
     dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, transform=args.transform)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
-    
+
     x_bins = dataset_train.x_bins
     y_bins = dataset_train.y_bins
     x_min = dataset_train.x_min
@@ -203,13 +203,13 @@ def main():
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
-        
+
     # plot loss/epoch for training and validation sets
     training = plt.plot(training_losses, label='training')
     validation = plt.plot(validation_losses, label='validation')
     plt.legend()
     plt.savefig(args.outf + "/loss_plot.png")
-    
+
     #write out training and validataion loss values to text files
     with open(args.outf + "/training_losses.txt","w") as tfileout:
         tfileout.write("\n".join("{}".format(tl) for tl in training_losses)+"\n")
@@ -217,13 +217,11 @@ def main():
         vfileout.write("\n".join("{}".format(vl) for vl in validation_losses)+"\n")
 
     make_sample_images(args.valfileFuzz, args.valfileSharp, model, args.transform)
-    
+
     #makes histograms of sample data
     os.makedirs(args.outf+'/plots')
     for fin in os.listdir(args.outf+'/samples'):
         make_plots(args.outf+'/samples/'+fin, x_min, x_max, x_bins, y_min, y_max, y_bins)
-    
-    
 
 if __name__ == "__main__":
     main()

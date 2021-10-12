@@ -23,8 +23,8 @@ def get_files(filetype):
     list_of_names_v = list_of_names[num_files:]
     return list_of_names_t, list_of_names_v
 
-fuzzy_t_files, fuzzy_v_files = get_files('Fuzz') 
-sharp_t_files, sharp_v_files = get_files('Sharp') 
+fuzzy_t_files, fuzzy_v_files = get_files('Fuzz')
+sharp_t_files, sharp_v_files = get_files('Sharp')
 
 config = MagiConfig()
 config.batchSize = 50
