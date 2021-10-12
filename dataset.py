@@ -98,10 +98,18 @@ class RootDataset(udata.Dataset):
         return array
 
 if __name__=="__main__":
+    torch.manual_seed(0)
+    dataset = RootDataset([sys.argv[1]], [sys.argv[2]])
+    truth, noise = dataset.__getitem__(0)
+    print(truth,truth.shape)
+    print(noise,noise.shape)
+    torch.manual_seed(0)
     dataset = RootDataset([sys.argv[1]], [sys.argv[2]], "normalize")
     truth, noise = dataset.__getitem__(0)
     print(truth,truth.shape)
     print(noise,noise.shape)
+    print(dataset.means[0],dataset.means.shape)
+    print(dataset.stdevs[0],dataset.stdevs.shape)
     dataset.do_unnormalize = True
     truth, noise = dataset.__getitem__(0)
     print(truth,truth.shape)
