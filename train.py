@@ -146,7 +146,7 @@ def main():
         print("Creating new model ")
     else:
         print("Loading model from file " + args.model)
-        model.load_state_dict(torch.load(args.model)) 
+        model.load_state_dict(torch.load(args.model))
         model.eval()
 
     # Loss function
@@ -177,11 +177,11 @@ def main():
             optimizer.step()
             model.eval()
             train_loss+=batch_loss.item()
-            train_loss = train_loss/len(loader_train)
             del sharp
             del fuzzy
             del output
             del batch_loss
+        train_loss = train_loss/len(loader_train)
         training_losses[epoch] = train_loss
         tqdm.write("loss: "+ str(train_loss))
 
@@ -191,11 +191,11 @@ def main():
             val_output = model((val_fuzzy.unsqueeze(1).float().to(args.device)))
             output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)
             val_loss+=output_loss.item()
-            val_loss = val_loss/len(loader_val)
             del val_sharp
             del val_fuzzy
             del val_output
             del output_loss
+        val_loss = val_loss/len(loader_val)
         scheduler.step(torch.tensor([val_loss]))
         validation_losses[epoch] = val_loss
         tqdm.write("val_loss: "+ str(val_loss))
