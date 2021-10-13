@@ -72,6 +72,10 @@ class RootDataset(udata.Dataset):
         # fix shapes
         self.sharp_branch = self.sharp_branch.squeeze(1)
         self.fuzzy_branch = self.fuzzy_branch.squeeze(1)
+        if self.means is not None:
+            self.means = np.squeeze(self.means,1)
+        if self.stdevs is not None:
+            self.stdevs = np.squeeze(self.stdevs,1)
 
     def __len__(self):
         if len(self.sharp_branch) == len(self.fuzzy_branch):

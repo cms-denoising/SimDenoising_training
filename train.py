@@ -50,11 +50,11 @@ args = parser.parse_args()
 
 # create and save sharp, fuzzy, and reconstructed data sets and store in text files
 def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
-    dataset = RootDataset(fuzzy_root, sharp_root, transform)
-    model.to('cpu')
     # makes random orientations match those from training
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
+    dataset = RootDataset(fuzzy_root, sharp_root, transform)
+    model.to('cpu')
     for event in range(10):
         sharp_norm, fuzzy_norm = dataset[event]
         fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)

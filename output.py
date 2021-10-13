@@ -26,14 +26,6 @@ def load_model(trained_model, device):
     torch.no_grad()
     return model
 
-def get_output(dataset, event, model, device):
-    sharp_norm, fuzzy_norm = dataset[event]
-    sharp_norm, fuzzy_norm = sharp_norm.to(device), fuzzy_norm.to(device)
-    fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)
-    output = model(fuzzy_eval.float()).squeeze(0).squeeze(0).cpu().detach().numpy()
-    output_un = dataset.unnormalize(output)
-    return output_un
-
 def main():
     parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
@@ -56,6 +48,7 @@ def main():
         print("Using CPU")
 
     random.seed(args.randomseed)
+    torch.manual_seed(args.randomseed)
     dataset = dat.RootDataset(args.fileFuzz,args.fileSharp,args.transform)
     loader = udata.DataLoader(dataset=dataset, batch_size=args.batchSize, num_workers=args.num_workers)
 
@@ -66,6 +59,7 @@ def main():
         _, fuzzy = data
         fuzzy = fuzzy.unsqueeze(1).float().to(device)
         output = model(fuzzy).squeeze(1).cpu().detach().numpy()
+        output = dataset.unnormalize(output)
         if i==0: outputs = output
         else: outputs = np.concatenate((outputs,output))
         del _
