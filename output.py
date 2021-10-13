@@ -27,14 +27,12 @@ def load_model(trained_model, device):
     return model
 
 def get_output(dataset, event, model, device):
-    # necessary to populate stdevs and means
-    _, fuzzy = dataset[event]
-    fuzzy = fuzzy.unsqueeze(0).unsqueeze(1).float().to(device)
-    output = model(fuzzy).squeeze(1).cpu().detach().numpy()
-    output = dataset.unnormalize(output)
-    del _
-    del fuzzy
-    return output
+    sharp_norm, fuzzy_norm = dataset[event]
+    sharp_norm, fuzzy_norm = sharp_norm.to(device), fuzzy_norm.to(device)
+    fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)
+    output = model(fuzzy_eval.float()).squeeze(0).squeeze(0).cpu().detach().numpy()
+    output_un = dataset.unnormalize(output)
+    return output_un
 
 def main():
     parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
@@ -45,6 +43,8 @@ def main():
     parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
     parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
     parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
+    parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
+    parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
     args = parser.parse_args()
 
     # choose cpu or gpu
@@ -57,14 +57,19 @@ def main():
 
     random.seed(args.randomseed)
     dataset = dat.RootDataset(args.fileFuzz,args.fileSharp,args.transform)
+    loader = udata.DataLoader(dataset=dataset, batch_size=args.batchSize, num_workers=args.num_workers)
 
     model = load_model(args.model, device)
 
     outputs = []
-    for i in range(len(dataset)):
-        output = get_output(dataset,i,model,device)
+    for i, data in enumerate(loader):
+        _, fuzzy = data
+        fuzzy = fuzzy.unsqueeze(1).float().to(device)
+        output = model(fuzzy).squeeze(1).cpu().detach().numpy()
         if i==0: outputs = output
         else: outputs = np.concatenate((outputs,output))
+        del _
+        del fuzzy
         del output
     np.savez(args.numpy, outputs)
 
