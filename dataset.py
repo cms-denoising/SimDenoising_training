@@ -6,13 +6,29 @@ import matplotlib as mpl
 import random
 import torch.utils.data as udata
 import torch
-from torchvision.transforms import Compose, RandomApply, RandomHorizontalFlip, RandomVerticalFlip, RandomRotation
+from torchvision.transforms import Compose, RandomHorizontalFlip, RandomVerticalFlip, RandomRotation
 
-flip = Compose([
-    RandomHorizontalFlip(0.5),
-    RandomVerticalFlip(0.5),
-    RandomApply([RandomRotation((90,90))],0.5),
-])
+# full set of order 4 rotations/flips
+# using random transforms deterministically, and then applying to random subsets of data...
+flips = [
+    RandomRotation((0,0)), # identity
+    RandomRotation((90,90)),
+    RandomRotation((180,180)),
+    RandomRotation((270,270)),
+    RandomHorizontalFlip(1.0),
+    Compose([
+        RandomRotation((90,90)),
+        RandomHorizontalFlip(1.0),
+    ]),
+    Compose([
+        RandomRotation((180,180)),
+        RandomHorizontalFlip(1.0),
+    ]),
+    Compose([
+        RandomRotation((270,270)),
+        RandomHorizontalFlip(1.0),
+    ]),
+]
 
 def get_tree(file_path):
     file = up.open(file_path)
@@ -31,7 +47,7 @@ def get_branch(file_paths):
 class RootDataset(udata.Dataset):
     allowed_transforms = ["none","normalize","normalizeSharp","log10"]
     nfeatures = 1
-    def __init__(self, fuzzy_root, sharp_root, transform='none'):
+    def __init__(self, fuzzy_root, sharp_root, transform='none', shuffle=True):
         # assume bin configuration is the same for all files
         sharp_tree = get_tree(sharp_root[0])
         self.xbins = sharp_tree["xbins"].array().to_numpy()[0]
@@ -66,7 +82,14 @@ class RootDataset(udata.Dataset):
             self.sharp_branch = np.divide(self.sharp_branch-self.means,self.stdevs,where=self.stdevs!=0)
             self.fuzzy_branch = np.divide(self.fuzzy_branch-self.means,self.stdevs,where=self.stdevs!=0)
         # combine on feature axis to apply random rotation/flips consistently for both datasets
-        combined_branch = flip(torch.from_numpy(np.concatenate([self.sharp_branch,self.fuzzy_branch],axis=1)))
+        combined_branch = torch.from_numpy(np.concatenate([self.sharp_branch,self.fuzzy_branch],axis=1))
+        # split into 8 subsets, apply different flip/rotation to each one, recombine, shuffle randomly
+        combined_branches = torch.tensor_split(combined_branch,len(flips))
+        combined_branches = [flips[i](combined_branches[i]) for i in range(len(flips))]
+        combined_branch = torch.cat(combined_branches)
+        if shuffle:
+            idx = torch.randperm(combined_branch.shape[0])
+            combined_branch = combined_branch[idx]
         # restore original split
         self.sharp_branch, self.fuzzy_branch = torch.split(combined_branch,1,dim=1)
         # fix shapes
