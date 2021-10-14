@@ -47,7 +47,7 @@ def get_branch(file_paths):
 class RootDataset(udata.Dataset):
     allowed_transforms = ["none","normalize","normalizeSharp","log10"]
     nfeatures = 1
-    def __init__(self, fuzzy_root, sharp_root, transform='none', shuffle=True):
+    def __init__(self, fuzzy_root, sharp_root, transform='none', shuffle=True, output=False):
         # assume bin configuration is the same for all files
         sharp_tree = get_tree(sharp_root[0])
         self.xbins = sharp_tree["xbins"].array().to_numpy()[0]
@@ -62,6 +62,7 @@ class RootDataset(udata.Dataset):
         self.means = None
         self.stdevs = None
         self.do_unnormalize = False
+        self.output = output
         if self.transform not in self.allowed_transforms:
             raise ValueError("Unknown transform: {}".format(self.transform))
 
@@ -111,17 +112,25 @@ class RootDataset(udata.Dataset):
             return self.unnormalize(self.sharp_branch[idx],idx=idx).squeeze(), \
                    self.unnormalize(self.fuzzy_branch[idx],idx=idx).squeeze()
         else:
-            return self.sharp_branch[idx], self.fuzzy_branch[idx]
+            if self.output and self.transform.startswith("normalize"):
+                return self.sharp_branch[idx], self.fuzzy_branch[idx], self.means[idx], self.stdevs[idx]
+            else:
+                return self.sharp_branch[idx], self.fuzzy_branch[idx]
 
     # assumes array is same size as inputs
-    def unnormalize(self,array,idx=None):
+    def unnormalize(self,array,idx=None,means=None,stdevs=None):
+        if means is None: means = self.means
+        else: means = np.asarray(means)
+        if stdevs is None: stdevs = self.stdevs
+        else: stdevs = np.asarray(stdevs)
+
         if self.transform=="log10":
             array = np.power(array,10)
         elif self.transform.startswith("normalize"):
             if idx==None:
-                array = array*self.stdevs+self.means
+                array = array*stdevs+means
             else:
-                array = array*self.stdevs[idx].squeeze()+self.means[idx].squeeze()
+                array = array*stdevs[idx].squeeze()+means[idx].squeeze()
         return array
 
 if __name__=="__main__":

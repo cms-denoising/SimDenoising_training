@@ -49,17 +49,17 @@ def main():
 
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
-    dataset = dat.RootDataset(args.fileFuzz,args.fileSharp,args.transform)
+    dataset = dat.RootDataset(args.fileFuzz,args.fileSharp,args.transform,output=True)
     loader = udata.DataLoader(dataset=dataset, batch_size=args.batchSize, num_workers=args.num_workers)
 
     model = load_model(args.model, device)
 
     outputs = []
     for i, data in enumerate(loader):
-        _, fuzzy = data
+        _, fuzzy, means, stdevs = data
         fuzzy = fuzzy.unsqueeze(1).float().to(device)
         output = model(fuzzy).squeeze(1).cpu().detach().numpy()
-        output = dataset.unnormalize(output)
+        output = dataset.unnormalize(output,means=means,stdevs=stdevs)
         if i==0: outputs = output
         else: outputs = np.concatenate((outputs,output))
         del _
