@@ -57,8 +57,8 @@ def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
     model.to('cpu')
     for event in range(10):
         sharp_norm, fuzzy_norm = dataset[event]
-        fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)
-        output = model(fuzzy_eval.float()).squeeze(0).squeeze(0).cpu().detach().numpy()
+        fuzzy_eval = np.expand_dims(fuzzy_norm,(0,1))
+        output = model(torch.from_numpy(fuzzy_eval).float()).squeeze(0).squeeze(0).cpu().detach().numpy()
         output_un = dataset.unnormalize(output,event)
         np.savetxt(args.outf+'/samples/output' + str(event) + '.txt', output_un)
     dataset.do_unnormalize = True

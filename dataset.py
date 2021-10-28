@@ -6,44 +6,6 @@ import matplotlib as mpl
 import random
 import torch.utils.data as udata
 import torch
-from torchvision.transforms import Compose, RandomHorizontalFlip, RandomVerticalFlip, RandomRotation
-
-# identity transform
-class Identity(object):
-    def __init__(self):
-        pass
-    def __call__(self, input):
-        return input
-
-# deterministic rotation transform
-class Rotation(object):
-    def __init__(self, k, dims):
-        self.k = k
-        self.dims = dims
-    def __call__(self, input):
-        return torch.rot90(input,self.k,self.dims)
-
-# full set of order 4 rotations/flips
-# using random transforms deterministically, and then applying to random subsets of data...
-flips = [
-    Identity(),
-    Rotation(1,(2,3)),
-    Rotation(2,(2,3)),
-    Rotation(3,(2,3)),
-    RandomHorizontalFlip(1.0),
-    Compose([
-        Rotation(1,(2,3)),
-        RandomHorizontalFlip(1.0),
-    ]),
-    Compose([
-        Rotation(2,(2,3)),
-        RandomHorizontalFlip(1.0),
-    ]),
-    Compose([
-        Rotation(3,(2,3)),
-        RandomHorizontalFlip(1.0),
-    ]),
-]
 
 def get_flips():
     flipx = random.randint(0, 1)
@@ -103,32 +65,15 @@ class RootDataset(udata.Dataset):
             self.stdevs = np.std(norm_branch, axis=(1,2,3))[:,None,None,None]
             self.sharp_branch = np.divide(self.sharp_branch-self.means,self.stdevs,where=self.stdevs!=0)
             self.fuzzy_branch = np.divide(self.fuzzy_branch-self.means,self.stdevs,where=self.stdevs!=0)
-        # combine on feature axis to apply random rotation/flips consistently for both datasets
-        vectorize = True
-        if vectorize:
-            combined_branch = torch.from_numpy(np.concatenate([self.sharp_branch,self.fuzzy_branch],axis=1))
-            # split into 8 subsets, apply different flip/rotation to each one, recombine, shuffle randomly
-            combined_branches = torch.tensor_split(combined_branch,len(flips))
-            combined_branches = [flips[i](combined_branches[i]) for i in range(len(flips))]
-            combined_branch = torch.cat(combined_branches)
-            if shuffle:
-                idx = torch.randperm(combined_branch.shape[0])
-                combined_branch = combined_branch[idx]
-            # restore original split
-            self.sharp_branch, self.fuzzy_branch = torch.split(combined_branch,1,dim=1)
-        else:
-            # compare to looping
-            for idx in range(self.sharp_branch.shape[0]):
-                flipx, flipy, rot = get_flips()
-                def do_flips(branch,idx,flipx,flipy,rot):
-                    if flipx: branch[idx] = np.fliplr(branch[idx])
-                    if flipy: branch[idx] = np.flipud(branch[idx])
-                    if rot:
-                        for i in range(rot): branch[idx] = np.rot90(branch[idx], axes=(1,2))
-                do_flips(self.sharp_branch,idx,flipx,flipy,rot)
-                do_flips(self.fuzzy_branch,idx,flipx,flipy,rot)
-            self.sharp_branch = torch.from_numpy(self.sharp_branch)
-            self.fuzzy_branch = torch.from_numpy(self.fuzzy_branch)
+        # apply random rotation/flips consistently for both datasets
+        for idx in range(self.sharp_branch.shape[0]):
+            flipx, flipy, rot = get_flips()
+            def do_flips(branch,idx,flipx,flipy,rot):
+                if flipx: branch[idx] = np.fliplr(branch[idx])
+                if flipy: branch[idx] = np.flipud(branch[idx])
+                if rot: branch[idx] = np.rot90(branch[idx], rot, (1,2))
+            do_flips(self.sharp_branch,idx,flipx,flipy,rot)
+            do_flips(self.fuzzy_branch,idx,flipx,flipy,rot)
         # fix shapes
         self.sharp_branch = self.sharp_branch.squeeze(1)
         self.fuzzy_branch = self.fuzzy_branch.squeeze(1)

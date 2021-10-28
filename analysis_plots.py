@@ -41,8 +41,8 @@ def calculate_ppe(dataset, outputs, event):
     sharp_energies = sharp.flatten()
     fuzzy_energies = fuzzy.flatten()
     output_energies = output.flatten()
-    ppe_sharp = torch.mean(sharp_energies)
-    ppe_fuzzy = torch.mean(fuzzy_energies)
+    ppe_sharp = np.mean(sharp_energies)
+    ppe_fuzzy = np.mean(fuzzy_energies)
     ppe_output = np.mean(output_energies)
     ppe.append(ppe_sharp)
     ppe.append(ppe_fuzzy)
@@ -83,7 +83,7 @@ def centroid(dataset, outputs, event, event_type, x_bins, y_bins):
         sharp, fuzzy = dataset[event]
         y_avg = 0
         for y in range(y_bins):
-            y_en = y*torch.mean(fuzzy[y])
+            y_en = y*np.mean(fuzzy[y])
             y_avg += y_en
         y_avg = y_avg/y_bins
         x_avg = 0
@@ -97,7 +97,7 @@ def centroid(dataset, outputs, event, event_type, x_bins, y_bins):
         sharp, fuzzy = dataset[event]
         y_avg = 0
         for y in range(y_bins):
-            y_en = y*torch.mean(sharp[y])
+            y_en = y*np.mean(sharp[y])
             y_avg += y_en
         y_avg = y_avg/y_bins
         x_avg = 0
