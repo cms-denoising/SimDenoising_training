@@ -24,8 +24,7 @@ def calculate_bins(fin):
     y_bins = tree["ybins"].array().to_numpy()[0]
     return x_bins, y_bins
 
-def freeze_dataset(dataset, randomseed):
-    random.seed(randomseed)
+def freeze_dataset(dataset):
     frozen_dataset = []
     for i in range(len(dataset)):
         data = []
@@ -39,9 +38,9 @@ def calculate_ppe(dataset, outputs, event):
     ppe = []
     sharp, fuzzy = dataset[event]
     output = outputs[event]
-    sharp_energies = np.ndarray.flatten(sharp)
-    fuzzy_energies = np.ndarray.flatten(fuzzy)
-    output_energies = np.ndarray.flatten(output)
+    sharp_energies = sharp.flatten()
+    fuzzy_energies = fuzzy.flatten()
+    output_energies = output.flatten()
     ppe_sharp = np.mean(sharp_energies)
     ppe_fuzzy = np.mean(fuzzy_energies)
     ppe_output = np.mean(output_energies)
@@ -110,13 +109,12 @@ def centroid(dataset, outputs, event, event_type, x_bins, y_bins):
     return x_avg, y_avg
 
 def centroid_plotdata(dataset, outputs, event_type, ppe_plot, x_bins, y_bins):
-    random.seed(0)
     centroids = []
     centroids_x = []
     centroids_y = []
     for i in range(len(dataset)):
         cntr = centroid(dataset, outputs, i, event_type, x_bins, y_bins)
-        if event_type == 'sharp': j=0 
+        if event_type == 'sharp': j=0
         if event_type == 'fuzzy': j=1
         if event_type == 'output': j=2
         cntr_x = cntr[0]/(ppe_plot[j][i])
@@ -240,7 +238,6 @@ def main():
     parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
     parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
     parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
-    parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
     parser.add_argument("--verbose", default=False, action="store_true", help="enable verbose printouts")
     args = parser.parse_args()
 
@@ -251,7 +248,9 @@ def main():
     x_bins, y_bins = calculate_bins(args.fileSharp[0])
 
     outputs = np.load(args.numpy)['arr_0']
-    dataset = freeze_dataset(dat.RootBasic(args.fileFuzz, args.fileSharp, args.transform), args.randomseed)
+    random.seed(args.randomseed)
+    torch.manual_seed(args.randomseed)
+    dataset = freeze_dataset(dat.RootDataset(args.fileFuzz, args.fileSharp, 'none'))
     t2 = time.time()
     if args.verbose: print("Loaded datasets ({} s)".format(t2-t1))
 

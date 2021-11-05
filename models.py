@@ -15,7 +15,6 @@ class DnCNN(nn.Module):
         layers.append(nn.ReLU(inplace=True))
         for _ in range(num_of_layers-2):
             layers.append(nn.Conv2d(in_channels=features, out_channels=features, kernel_size=kernel_size, padding=padding, bias=False))
-            
             layers.append(nn.ReLU(inplace=True))
         layers.append(nn.Conv2d(in_channels=features, out_channels=channels, kernel_size=kernel_size, padding=padding, bias=False))
         self.dncnn = nn.Sequential(*layers)
@@ -40,7 +39,7 @@ class PatchLoss(nn.Module):
                 for k in range(list(output_patches.size())[1]):
                     max_patch_loss = max(max_patch_loss, f.l1_loss(output_patches[j][k], target_patches[j][k]))
             avg_loss+=max_patch_loss
-        avg_loss/=len(output)       
+        avg_loss/=len(output)
         #print(avg_loss)
         return avg_loss;
 
@@ -67,11 +66,10 @@ class WeightedPatchLoss(nn.Module):
 if __name__=="__main__":
     criterion = PatchLoss()
     dtype = torch.FloatTensor
-    
+
     x = Variable(torch.randn(100, 100).type(dtype), requires_grad=False)
     y = Variable(torch.randn(100, 100).type(dtype), requires_grad=False)
     loss = criterion(x, y, 10)
     net = DnCNN()
     input = torch.randn(1, 1, 32, 32)
     out = net(input)
-    
