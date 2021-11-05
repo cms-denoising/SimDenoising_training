@@ -27,20 +27,24 @@ class PatchLoss(nn.Module):
     def __initII(self, size_average=None, reduce=None, reduction: str = 'mean') -> None:
         super(PatchLoss, self).__init__(size_average, reduce, reduction)
 
-    def forward(self, output, target, patch_size=50):
+    def forward(self, output, target, mask=None, patch_size=50):
         avg_loss = 0
         for i in range(len(output)):
             # split output and target images into patches
             output_patches = output[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
             target_patches = target[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
+            if mask is not None:
+                mask_patches = mask[i].unfold(0, patch_size, patch_size).unfold(1, patch_size, patch_size)
             max_patch_loss = 0
             # calculate loss for each patch of the image
             for j in range(list(output_patches.size())[0]):
                 for k in range(list(output_patches.size())[1]):
-                    max_patch_loss = max(max_patch_loss, f.l1_loss(output_patches[j][k], target_patches[j][k]))
+                    if mask is not None:
+                        output_patch = output_patches[j][k][mask_patches[j][k]]
+                        target_patch = target_patches[j][k][mask_patches[j][k]]
+                    max_patch_loss = max(max_patch_loss, f.l1_loss(output_patch, target_patch))
             avg_loss+=max_patch_loss
         avg_loss/=len(output)
-        #print(avg_loss)
         return avg_loss;
 
 class WeightedPatchLoss(nn.Module):

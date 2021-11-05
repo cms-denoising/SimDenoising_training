@@ -46,6 +46,7 @@ parser.add_argument("--features", type=int, default=9, help="Number of features 
 parser.add_argument("--transform", type=str, default="none", choices=RootDataset.allowed_transforms, help="transform for input data")
 parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
+parser.add_argument("--mask", type=float, default=-1, help="mask pixels below specified value (if positive) in loss")
 args = parser.parse_args()
 
 # create and save sharp, fuzzy, and reconstructed data sets and store in text files
@@ -56,7 +57,7 @@ def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
     dataset = RootDataset(fuzzy_root, sharp_root, transform)
     model.to('cpu')
     for event in range(10):
-        sharp_norm, fuzzy_norm = dataset[event]
+        sharp_norm, fuzzy_norm, _ = dataset[event]
         fuzzy_eval = np.expand_dims(fuzzy_norm,(0,1))
         output = model(torch.from_numpy(fuzzy_eval).float()).squeeze(0).squeeze(0).cpu().detach().numpy()
         output_un = dataset.unnormalize(output,event)
@@ -128,9 +129,9 @@ def main():
     # Load dataset
     print('Loading dataset ...\n')
 
-    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz, transform=args.transform)
+    dataset_train = RootDataset(sharp_root=args.trainfileSharp, fuzzy_root=args.trainfileFuzz, transform=args.transform, mask=args.mask)
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
-    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, transform=args.transform)
+    dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, transform=args.transform, mask=args.mask)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
 
     xbins = dataset_train.xbins
@@ -170,10 +171,10 @@ def main():
             model.train()
             model.zero_grad()
             optimizer.zero_grad()
-            sharp, fuzzy = data
+            sharp, fuzzy, mask = data
             fuzzy = fuzzy.unsqueeze(1)
             output = model((fuzzy.float().to(args.device)))
-            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device)).to(args.device)
+            batch_loss = criterion(output.squeeze(1).to(args.device), sharp.to(args.device), mask=mask.squeeze(1).to(args.device)).to(args.device)
             batch_loss.backward()
             optimizer.step()
             model.eval()
@@ -188,9 +189,9 @@ def main():
 
         val_loss = 0
         for i, data in tqdm(enumerate(loader_val, 0), unit="batch", total=len(loader_val)):
-            val_sharp, val_fuzzy = data
+            val_sharp, val_fuzzy, mask = data
             val_output = model((val_fuzzy.unsqueeze(1).float().to(args.device)))
-            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device)).to(args.device)
+            output_loss = criterion(val_output.squeeze(1).to(args.device), val_sharp.to(args.device), mask=mask.squeeze(1).to(args.device)).to(args.device)
             val_loss+=output_loss.item()
             del val_sharp
             del val_fuzzy

@@ -30,7 +30,7 @@ def get_branch(file_paths):
 class RootDataset(udata.Dataset):
     allowed_transforms = ["none","normalize","normalizeSharp","log10"]
     nfeatures = 1
-    def __init__(self, fuzzy_root, sharp_root, transform='none', shuffle=True, output=False):
+    def __init__(self, fuzzy_root, sharp_root, transform='none', shuffle=True, output=False, mask=-1):
         # assume bin configuration is the same for all files
         sharp_tree = get_tree(sharp_root[0])
         self.xbins = sharp_tree["xbins"].array().to_numpy()[0]
@@ -55,6 +55,12 @@ class RootDataset(udata.Dataset):
         # reshape to image tensor
         self.sharp_branch = self.sharp_branch.reshape((self.sharp_branch.shape[0],self.nfeatures,self.xbins,self.ybins))
         self.fuzzy_branch = self.fuzzy_branch.reshape((self.fuzzy_branch.shape[0],self.nfeatures,self.xbins,self.ybins))
+        # create mask from original sharp values if requested
+        self.mask = None
+        if mask>=0:
+            self.mask = self.sharp_branch > mask
+        else:
+            self.mask = np.ones_like(self.sharp_branch)
         # apply transform if any
         if self.transform=="log10":
             self.sharp_branch = np.log10(self.sharp_branch, where=self.sharp_branch>0)
@@ -94,9 +100,9 @@ class RootDataset(udata.Dataset):
                    self.unnormalize(self.fuzzy_branch[idx],idx=idx).squeeze()
         else:
             if self.output and self.transform.startswith("normalize"):
-                return self.sharp_branch[idx], self.fuzzy_branch[idx], self.means[idx], self.stdevs[idx]
+                return self.sharp_branch[idx], self.fuzzy_branch[idx], self.mask[idx], self.means[idx], self.stdevs[idx]
             else:
-                return self.sharp_branch[idx], self.fuzzy_branch[idx]
+                return self.sharp_branch[idx], self.fuzzy_branch[idx], self.mask[idx]
 
     # assumes array is same size as inputs
     def unnormalize(self,array,idx=None,means=None,stdevs=None):
