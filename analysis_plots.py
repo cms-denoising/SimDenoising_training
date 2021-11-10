@@ -20,9 +20,9 @@ from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHel
 def calculate_bins(fin):
     upfile = up.open(fin)
     tree = upfile["g4SimHits"]["tree"]
-    x_bins = tree["xbins"].array().to_numpy()[0]
-    y_bins = tree["ybins"].array().to_numpy()[0]
-    return x_bins, y_bins
+    xbins = tree["xbins"].array().to_numpy()[0]
+    ybins = tree["ybins"].array().to_numpy()[0]
+    return xbins, ybins
 
 def freeze_dataset(dataset):
     frozen_dataset = []
@@ -63,57 +63,57 @@ def ppe_plotdata(dataset, outputs):
         ppe_output.append(output_ppe)
     return ppe_sharp, ppe_fuzzy, ppe_output
 
-def centroid(dataset, outputs, event, event_type, x_bins, y_bins):
+def centroid(dataset, outputs, event, event_type, xbins, ybins):
     if event_type == 'output':
         event_points = []
         output = outputs[event]
         y_avg = 0
-        for y in range(y_bins):
+        for y in range(ybins):
             y_en = y*np.mean(output[y])
             y_avg += y_en
-        y_avg = y_avg/y_bins
+        y_avg = y_avg/ybins
         x_avg = 0
-        for x in range(x_bins):
-            for y in range(y_bins):
+        for x in range(xbins):
+            for y in range(ybins):
                 x_en = x*output[y][x]
                 x_avg += x_en
-        x_avg = (x_avg/x_bins)/y_bins
+        x_avg = (x_avg/xbins)/ybins
     if event_type == 'fuzzy':
         event_points = []
         sharp, fuzzy = dataset[event]
         y_avg = 0
-        for y in range(y_bins):
+        for y in range(ybins):
             y_en = y*np.mean(fuzzy[y])
             y_avg += y_en
-        y_avg = y_avg/y_bins
+        y_avg = y_avg/ybins
         x_avg = 0
-        for x in range(x_bins):
-            for y in range(y_bins):
+        for x in range(xbins):
+            for y in range(ybins):
                 x_en = x*fuzzy[y][x]
                 x_avg += x_en
-        x_avg = (x_avg/x_bins)/y_bins
+        x_avg = (x_avg/xbins)/ybins
     if event_type == 'sharp':
         event_points = []
         sharp, fuzzy = dataset[event]
         y_avg = 0
-        for y in range(y_bins):
+        for y in range(ybins):
             y_en = y*np.mean(sharp[y])
             y_avg += y_en
-        y_avg = y_avg/y_bins
+        y_avg = y_avg/ybins
         x_avg = 0
-        for x in range(x_bins):
-            for y in range(y_bins):
+        for x in range(xbins):
+            for y in range(ybins):
                 x_en = x*sharp[y][x]
                 x_avg += x_en
-        x_avg = (x_avg/x_bins)/y_bins
+        x_avg = (x_avg/xbins)/ybins
     return x_avg, y_avg
 
-def centroid_plotdata(dataset, outputs, event_type, ppe_plot, x_bins, y_bins):
+def centroid_plotdata(dataset, outputs, event_type, ppe_plot, xbins, ybins):
     centroids = []
     centroids_x = []
     centroids_y = []
     for i in range(len(dataset)):
-        cntr = centroid(dataset, outputs, i, event_type, x_bins, y_bins)
+        cntr = centroid(dataset, outputs, i, event_type, xbins, ybins)
         if event_type == 'sharp': j=0
         if event_type == 'fuzzy': j=1
         if event_type == 'output': j=2
@@ -132,61 +132,61 @@ def centroid_rad_data(centroid_plotdata):
         centroid_rads.append(centroid_rad)
     return centroid_rads
 
-def hits_above_threshold(dataset, outputs, threshold, event, event_type, x_bins, y_bins):
+def hits_above_threshold(dataset, outputs, threshold, event, event_type, xbins, ybins):
     if event_type == 'sharp' or 'fuzzy':
         sharp, fuzzy = dataset[event]
     count = 0
     if event_type == 'sharp':
-        for y in range(y_bins):
-            for x in range(x_bins):
+        for y in range(ybins):
+            for x in range(xbins):
                 if sharp[y][x] >= threshold:
                     count +=1
     if event_type == 'fuzzy':
-        for y in range(y_bins):
-            for x in range(x_bins):
+        for y in range(ybins):
+            for x in range(xbins):
                 if fuzzy[y][x] >= threshold:
                     count +=1
     if event_type == 'output':
         output = outputs[event]
-        for y in range(y_bins):
-            for x in range(x_bins):
+        for y in range(ybins):
+            for x in range(xbins):
                 if output[y][x] >= threshold:
                     count +=1
     return count
 
-def hits_data(dataset, outputs, threshold, event_type, x_bins, y_bins):
+def hits_data(dataset, outputs, threshold, event_type, xbins, ybins):
     hits = []
     for i in range(len(dataset)):
-        hit = hits_above_threshold(dataset, outputs, threshold, i, event_type, x_bins, y_bins)
+        hit = hits_above_threshold(dataset, outputs, threshold, i, event_type, xbins, ybins)
         hits.append(hit)
     return hits
 
-def dist_above_threshold(dataset, outputs, threshold, event, event_type, x_bins, y_bins):
+def dist_above_threshold(dataset, outputs, threshold, event, event_type, xbins, ybins):
     hits = []
     if event_type == 'sharp' or 'fuzzy':
         sharp, fuzzy = dataset[event]
     if event_type == 'sharp':
-        for y in range(y_bins):
-            for x in range(x_bins):
+        for y in range(ybins):
+            for x in range(xbins):
                 if sharp[y][x] >= threshold:
                     hits.append(sharp[y][x])
     if event_type == 'fuzzy':
-        for y in range(y_bins):
-            for x in range(x_bins):
+        for y in range(ybins):
+            for x in range(xbins):
                 if fuzzy[y][x] >= threshold:
                     hits.append(fuzzy[y][x])
     if event_type == 'output':
         output = outputs[event]
-        for y in range(y_bins):
-            for x in range(x_bins):
+        for y in range(ybins):
+            for x in range(xbins):
                 if output[y][x] >= threshold:
                     hits.append(output[y][x])
     return hits
 
-def dist_hits_data(dataset, outputs, threshold, event_type, x_bins, y_bins):
+def dist_hits_data(dataset, outputs, threshold, event_type, xbins, ybins):
     dist_hits = []
     for i in range(len(dataset)):
-        event_hits = dist_above_threshold(dataset, outputs, threshold, i, event_type, x_bins, y_bins)
+        event_hits = dist_above_threshold(dataset, outputs, threshold, i, event_type, xbins, ybins)
         for elem in event_hits:
             dist_hits.append(elem)
     return dist_hits
@@ -245,7 +245,7 @@ def main():
 
     t1 = time.time()
     if args.verbose: print("Started")
-    x_bins, y_bins = calculate_bins(args.fileSharp[0])
+    xbins, ybins = calculate_bins(args.fileSharp[0])
 
     outputs = np.load(args.numpy)['arr_0']
     random.seed(args.randomseed)
@@ -258,9 +258,9 @@ def main():
     t3 = time.time()
     if args.verbose: print("Computed ppe ({} s)".format(t3-t2))
 
-    centroid_data = centroid_plotdata(dataset, outputs, 'sharp', ppe_plot, x_bins, y_bins)
-    centroid_data_fuzzy = centroid_plotdata(dataset, outputs, 'fuzzy', ppe_plot, x_bins, y_bins)
-    centroid_data_output = centroid_plotdata(dataset, outputs, 'output', ppe_plot, x_bins, y_bins)
+    centroid_data = centroid_plotdata(dataset, outputs, 'sharp', ppe_plot, xbins, ybins)
+    centroid_data_fuzzy = centroid_plotdata(dataset, outputs, 'fuzzy', ppe_plot, xbins, ybins)
+    centroid_data_output = centroid_plotdata(dataset, outputs, 'output', ppe_plot, xbins, ybins)
     t4 = time.time()
     if args.verbose: print("Computed centroid ({} s)".format(t4-t3))
 
@@ -268,15 +268,15 @@ def main():
 
     plot_hist([ppe_plot[0],ppe_plot[2]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/energy-per-pixel-he.png')
 
-    hits_sharp = dist_hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
-    hits_fuzzy = dist_hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
-    hits_output = dist_hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
+    hits_sharp = dist_hits_data(dataset, outputs, 0.01, 'sharp', xbins, ybins)
+    hits_fuzzy = dist_hits_data(dataset, outputs, 0.01, 'fuzzy', xbins, ybins)
+    hits_output = dist_hits_data(dataset, outputs, 0.01, 'output', xbins, ybins)
     t5 = time.time()
     if args.verbose: print("Computed hits ({} s)".format(t5-t4))
 
-    hit_number_sharp = hits_data(dataset, outputs, 0.01, 'sharp', x_bins, y_bins)
-    hit_number_output = hits_data(dataset, outputs, 0.01, 'output', x_bins, y_bins)
-    hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', x_bins, y_bins)
+    hit_number_sharp = hits_data(dataset, outputs, 0.01, 'sharp', xbins, ybins)
+    hit_number_output = hits_data(dataset, outputs, 0.01, 'output', xbins, ybins)
+    hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', xbins, ybins)
     t6 = time.time()
     if args.verbose: print("Computed nhits ({} s)".format(t6-t5))
 
