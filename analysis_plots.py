@@ -16,187 +16,53 @@ import random
 import os, time
 import dataset as dat
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
+from functools import partial
+from collections import OrderedDict
 
 def calculate_bins(fin):
     upfile = up.open(fin)
     tree = upfile["g4SimHits"]["tree"]
-    xbins = tree["xbins"].array().to_numpy()[0]
-    ybins = tree["ybins"].array().to_numpy()[0]
-    return xbins, ybins
+    bininfo = dict(
+        x = {},
+        y = {},
+    )
+    def get_bin_qty(tree,coord,qty):
+        return tree["{}{}".format(coord,qty)].array().to_numpy()[0]
+    for coord in bininfo:
+        bininfo[coord]["nbins"] = get_bin_qty(tree,coord,"bins")
+        bininfo[coord]["min"] = get_bin_qty(tree,coord,"min")
+        bininfo[coord]["max"] = get_bin_qty(tree,coord,"max")
+        bininfo[coord]["size"] = (bininfo[coord]["max"]-bininfo[coord]["min"])/bininfo[coord]["nbins"]
+
+    return bininfo
 
 def freeze_dataset(dataset):
-    frozen_dataset = []
-    for i in range(len(dataset)):
-        data = []
-        sharp, fuzzy = dataset[i]
-        data.append(sharp)
-        data.append(fuzzy)
-        frozen_dataset.append(data)
-    return frozen_dataset
+    return dataset.sharp_branch, dataset.fuzzy_branch
 
-def calculate_ppe(dataset, outputs, event):
-    ppe = []
-    sharp, fuzzy = dataset[event]
-    output = outputs[event]
-    sharp_energies = sharp.flatten()
-    fuzzy_energies = fuzzy.flatten()
-    output_energies = output.flatten()
-    ppe_sharp = np.mean(sharp_energies)
-    ppe_fuzzy = np.mean(fuzzy_energies)
-    ppe_output = np.mean(output_energies)
-    ppe.append(ppe_sharp)
-    ppe.append(ppe_fuzzy)
-    ppe.append(ppe_output)
-    return ppe
+def ppe(data):
+    return np.mean(data, axis=(1,2))
 
-def ppe_plotdata(dataset, outputs):
-    ppe_sharp = []
-    ppe_fuzzy = []
-    ppe_output = []
-    for i in range(len(dataset)):
-        ppes = calculate_ppe(dataset, outputs, i)
-        sharp_ppe = ppes[0]
-        fuzzy_ppe = ppes[1]
-        output_ppe = ppes[2]
-        ppe_sharp.append(sharp_ppe)
-        ppe_fuzzy.append(fuzzy_ppe)
-        ppe_output.append(output_ppe)
-    return ppe_sharp, ppe_fuzzy, ppe_output
+def centroid(data, bininfo):
+    # assume evenly spaced bins
+    width = 0.5
+    # need same bin centers for each event: concatenate is the fastest way to do this
+    xcenters = np.arange(data.shape[1])+width
+    xcenters = np.concatenate([xcenters[np.newaxis,...]]*data.shape[0],axis=0)
+    ycenters = np.arange(data.shape[2])+width
+    ycenters = np.concatenate([ycenters[np.newaxis,...]]*data.shape[0],axis=0)
+    xenergies = np.sum(data, axis=2)
+    yenergies = np.sum(data, axis=1)
+    xavg = np.sum(xcenters*xenergies,axis=1)/np.sum(xenergies,axis=1)*bininfo["x"]["size"]+bininfo["x"]["min"]
+    yavg = np.sum(ycenters*yenergies,axis=1)/np.sum(yenergies,axis=1)*bininfo["y"]["size"]+bininfo["y"]["min"]
+    rad = np.sqrt(xavg**2+yavg**2)
+    return rad
 
-def centroid(dataset, outputs, event, event_type, xbins, ybins):
-    if event_type == 'output':
-        event_points = []
-        output = outputs[event]
-        y_avg = 0
-        for y in range(ybins):
-            y_en = y*np.mean(output[y])
-            y_avg += y_en
-        y_avg = y_avg/ybins
-        x_avg = 0
-        for x in range(xbins):
-            for y in range(ybins):
-                x_en = x*output[y][x]
-                x_avg += x_en
-        x_avg = (x_avg/xbins)/ybins
-    if event_type == 'fuzzy':
-        event_points = []
-        sharp, fuzzy = dataset[event]
-        y_avg = 0
-        for y in range(ybins):
-            y_en = y*np.mean(fuzzy[y])
-            y_avg += y_en
-        y_avg = y_avg/ybins
-        x_avg = 0
-        for x in range(xbins):
-            for y in range(ybins):
-                x_en = x*fuzzy[y][x]
-                x_avg += x_en
-        x_avg = (x_avg/xbins)/ybins
-    if event_type == 'sharp':
-        event_points = []
-        sharp, fuzzy = dataset[event]
-        y_avg = 0
-        for y in range(ybins):
-            y_en = y*np.mean(sharp[y])
-            y_avg += y_en
-        y_avg = y_avg/ybins
-        x_avg = 0
-        for x in range(xbins):
-            for y in range(ybins):
-                x_en = x*sharp[y][x]
-                x_avg += x_en
-        x_avg = (x_avg/xbins)/ybins
-    return x_avg, y_avg
+def hits_above_threshold(data, threshold):
+    return np.sum(data>threshold,axis=(1,2))
 
-def centroid_plotdata(dataset, outputs, event_type, ppe_plot, xbins, ybins):
-    centroids = []
-    centroids_x = []
-    centroids_y = []
-    for i in range(len(dataset)):
-        cntr = centroid(dataset, outputs, i, event_type, xbins, ybins)
-        if event_type == 'sharp': j=0
-        if event_type == 'fuzzy': j=1
-        if event_type == 'output': j=2
-        cntr_x = cntr[0]/(ppe_plot[j][i])
-        cntr_y = cntr[1]/(ppe_plot[j][i])
-        centroids_x.append(cntr_x)
-        centroids_y.append(cntr_y)
-    centroids.append(centroids_x)
-    centroids.append(centroids_y)
-    return centroids
-
-def centroid_rad_data(centroid_plotdata):
-    centroid_rads = []
-    for i in range(len(centroid_plotdata[0])):
-        centroid_rad = np.sqrt(centroid_plotdata[0][i]**2+centroid_plotdata[1][i]**2)
-        centroid_rads.append(centroid_rad)
-    return centroid_rads
-
-def hits_above_threshold(dataset, outputs, threshold, event, event_type, xbins, ybins):
-    if event_type == 'sharp' or 'fuzzy':
-        sharp, fuzzy = dataset[event]
-    count = 0
-    if event_type == 'sharp':
-        for y in range(ybins):
-            for x in range(xbins):
-                if sharp[y][x] >= threshold:
-                    count +=1
-    if event_type == 'fuzzy':
-        for y in range(ybins):
-            for x in range(xbins):
-                if fuzzy[y][x] >= threshold:
-                    count +=1
-    if event_type == 'output':
-        output = outputs[event]
-        for y in range(ybins):
-            for x in range(xbins):
-                if output[y][x] >= threshold:
-                    count +=1
-    return count
-
-def hits_data(dataset, outputs, threshold, event_type, xbins, ybins):
-    hits = []
-    for i in range(len(dataset)):
-        hit = hits_above_threshold(dataset, outputs, threshold, i, event_type, xbins, ybins)
-        hits.append(hit)
-    return hits
-
-def dist_above_threshold(dataset, outputs, threshold, event, event_type, xbins, ybins):
-    hits = []
-    if event_type == 'sharp' or 'fuzzy':
-        sharp, fuzzy = dataset[event]
-    if event_type == 'sharp':
-        for y in range(ybins):
-            for x in range(xbins):
-                if sharp[y][x] >= threshold:
-                    hits.append(sharp[y][x])
-    if event_type == 'fuzzy':
-        for y in range(ybins):
-            for x in range(xbins):
-                if fuzzy[y][x] >= threshold:
-                    hits.append(fuzzy[y][x])
-    if event_type == 'output':
-        output = outputs[event]
-        for y in range(ybins):
-            for x in range(xbins):
-                if output[y][x] >= threshold:
-                    hits.append(output[y][x])
-    return hits
-
-def dist_hits_data(dataset, outputs, threshold, event_type, xbins, ybins):
-    dist_hits = []
-    for i in range(len(dataset)):
-        event_hits = dist_above_threshold(dataset, outputs, threshold, i, event_type, xbins, ybins)
-        for elem in event_hits:
-            dist_hits.append(elem)
-    return dist_hits
-
-def diff(dataset1, dataset2):
-    diffset = []
-    for i, elem in enumerate(dataset1):
-        diff = dataset1[i] - dataset2[i]
-        diffset.append(diff)
-    return diffset
+def dist_above_threshold(data, threshold):
+    tmp = data[data>threshold]
+    return tmp.flatten()
 
 def plot_hist(data, plotname, axis_x, axis_y, bins=None, labels=None, plotrange=None, path=None):
     plt.hist(data, bins=bins, alpha=0.75, label=labels)
@@ -230,6 +96,11 @@ def plot_scatter(data, data2, plotname, axis_x, axis_y, bins=None, labels=None, 
         plt.savefig(path)
     plt.clf()
 
+def print_time(do_print,qty,t1,operation="Computed"):
+    t2 = time.time()
+    if do_print: print("{} {} ({} s)".format(operation,qty,t2-t1))
+    return t2
+
 def main():
     parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
@@ -245,56 +116,55 @@ def main():
 
     t1 = time.time()
     if args.verbose: print("Started")
-    xbins, ybins = calculate_bins(args.fileSharp[0])
+    bininfo = calculate_bins(args.fileSharp[0])
 
     outputs = np.load(args.numpy)['arr_0']
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
-    dataset = freeze_dataset(dat.RootDataset(args.fileFuzz, args.fileSharp, 'none'))
-    t2 = time.time()
-    if args.verbose: print("Loaded datasets ({} s)".format(t2-t1))
+    sharp, fuzzy = freeze_dataset(dat.RootDataset(args.fileFuzz, args.fileSharp, 'none'))
+    dataset = dict(
+        sharp = dict(data=sharp),
+        fuzzy = dict(data=fuzzy),
+        outputs = dict(data=outputs),
+    )
 
-    ppe_plot = ppe_plotdata(dataset, outputs)
-    t3 = time.time()
-    if args.verbose: print("Computed ppe ({} s)".format(t3-t2))
+    threshold = 0.01
+    qtys = OrderedDict([
+        ("ppe",ppe),
+        ("centroid",partial(centroid,bininfo=bininfo)),
+        ("nhits",partial(hits_above_threshold,threshold=threshold)),
+        ("hits",partial(dist_above_threshold,threshold=threshold)),
+    ])
 
-    centroid_data = centroid_plotdata(dataset, outputs, 'sharp', ppe_plot, xbins, ybins)
-    centroid_data_fuzzy = centroid_plotdata(dataset, outputs, 'fuzzy', ppe_plot, xbins, ybins)
-    centroid_data_output = centroid_plotdata(dataset, outputs, 'output', ppe_plot, xbins, ybins)
-    t4 = time.time()
-    if args.verbose: print("Computed centroid ({} s)".format(t4-t3))
+    t2 = print_time(args.verbose, "datasets", t1, "Loaded")
 
-    plot_hist([ppe_plot[0],ppe_plot[2],ppe_plot[1],], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/energy-per-pixel-hle.png')
+    t3 = t2
+    for qty,fn in qtys.items():
+        for dataname,datadict in dataset.items():
+            datadict[qty] = fn(datadict["data"])
+        t3 = print_time(args.verbose, qty, t3)
 
-    plot_hist([ppe_plot[0],ppe_plot[2]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/energy-per-pixel-he.png')
+    plot_hist([dataset["sharp"]["ppe"],dataset["outputs"]["ppe"],dataset["fuzzy"]["ppe"]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/energy-per-pixel-hle.png')
 
-    hits_sharp = dist_hits_data(dataset, outputs, 0.01, 'sharp', xbins, ybins)
-    hits_fuzzy = dist_hits_data(dataset, outputs, 0.01, 'fuzzy', xbins, ybins)
-    hits_output = dist_hits_data(dataset, outputs, 0.01, 'output', xbins, ybins)
-    t5 = time.time()
-    if args.verbose: print("Computed hits ({} s)".format(t5-t4))
+    plot_hist([dataset["sharp"]["ppe"],dataset["outputs"]["ppe"]], 'Energy per Pixel', 'Energy (MeV)', 'Number of Events', bins=None, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/energy-per-pixel-he.png')
 
-    hit_number_sharp = hits_data(dataset, outputs, 0.01, 'sharp', xbins, ybins)
-    hit_number_output = hits_data(dataset, outputs, 0.01, 'output', xbins, ybins)
-    hit_number_fuzzy = hits_data(dataset, outputs, 0.01, 'fuzzy', xbins, ybins)
-    t6 = time.time()
-    if args.verbose: print("Computed nhits ({} s)".format(t6-t5))
+    plot_hist([dataset["sharp"]["hits"],dataset["outputs"]["hits"],dataset["fuzzy"]["hits"]], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
 
-    plot_hist([hits_sharp,hits_output], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
+    plot_hist([dataset["sharp"]["hits"],dataset["outputs"]["hits"]], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=None, labels = ['high-quality', 'enhanced'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
 
-    plot_hist([hits_sharp,hits_output,hits_fuzzy], 'Hits Above Threshold', 'Energy in Pixel (MeV)', 'Number of Pixels', bins=20, labels = ['high-quality', 'enhanced', 'low-quality'], plotrange=(0,2000), path=args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
+    plot_hist([dataset["sharp"]["centroid"],dataset["outputs"]["centroid"],dataset["fuzzy"]["centroid"]], 'Radius of Energy Centroid', 'Radius (pixels)', 'Number of Events', bins=5, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/rad-centroid-hist-hle.png')
 
-    plot_hist([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)], 'Radius of Energy Centroid', 'Radius (pixels)', 'Number of Events', bins=5, labels = ['high-qualtiy', 'enhanced'], plotrange=(20,60), path=args.outf+'/analysis-plots/rad-centroid-hist-he.png')
+    plot_hist([dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]], 'Radius of Energy Centroid', 'Radius (pixels)', 'Number of Events', bins=5, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/rad-centroid-hist-he.png')
 
-    plot_hist([hit_number_sharp,hit_number_output,hit_number_fuzzy], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/hit-number-hle.png')
+    plot_hist([dataset["sharp"]["nhits"],dataset["outputs"]["nhits"],dataset["fuzzy"]["nhits"]], 'Number of Hits', "", 'Number of Events', bins=10, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/hit-number-hle.png')
 
-    plot_hist([hit_number_sharp,hit_number_output], 'Number of Hits', '', 'Number of Events', bins=10, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/hit-number-he.png')
+    plot_hist([dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]], 'Number of Hits', "", 'Number of Events', bins=10, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/hit-number-he.png')
 
-    plot_scatter([centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_output)],[centroid_rad_data(centroid_data),centroid_rad_data(centroid_data_fuzzy)], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality) (pixels)', 'Radius (pixels)', labels=['enhanced', 'low-quality'], plotrange=None, path=args.outf+'/analysis-plots/rad-centroid-scatter.png')
+    plot_scatter([dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]],[dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"]], 'Energy Centroid vs. High Quality Energy Centroid', 'Radius (high-quality) (pixels)', 'Radius (pixels)', labels=['enhanced', 'low-quality'], plotrange=None, path=args.outf+'/analysis-plots/rad-centroid-scatter.png')
 
-    plot_scatter([hit_number_sharp,hit_number_output], [hit_number_sharp,hit_number_fuzzy], 'Hits vs. Hits', 'Hits(high-quality)', 'Hits(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True, path=args.outf+'/analysis-plots/hit-scatter.png')
+    plot_scatter([dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]], [dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"]], 'Hits vs. Hits', 'Hits(high-quality)', 'Hits(low-quality)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True, path=args.outf+'/analysis-plots/hit-scatter.png')
 
-    plot_scatter([ppe_plot[0],ppe_plot[1]],[ppe_plot[0],ppe_plot[2]], 'Energy vs. Energy', 'Energy per Pixel(high-quality) (MeV)', 'Energy per Pixel(low-quality) (MeV)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True, path=args.outf+'/analysis-plots/energy-scatter.png')
+    plot_scatter([dataset["sharp"]["ppe"],dataset["outputs"]["ppe"]],[dataset["sharp"]["ppe"],dataset["fuzzy"]["ppe"]], 'Energy vs. Energy', 'Energy per Pixel(high-quality) (MeV)', 'Energy per Pixel(low-quality) (MeV)', labels=['enhanced', 'low-quality'], plotrange=None, plotline=True, path=args.outf+'/analysis-plots/energy-scatter.png')
 
 if __name__ == "__main__":
     main()
