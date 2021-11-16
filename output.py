@@ -34,10 +34,13 @@ def main():
     parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
     parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
     parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
-    parser.add_argument("--transform", type=str, default="normalize", choices=dat.RootDataset.allowed_transforms, help="transform for input data")
+    parser.add_argument("--transform", type=str, default=[], nargs='*', choices=dat.RootDataset.allowed_transforms, help="transform(s) for input data")
     parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
     parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
     args = parser.parse_args()
+
+    # backward compatibility
+    if not isinstance(args.transform,list): args.transform = [args.transform]
 
     # choose cpu or gpu
     if torch.cuda.is_available():

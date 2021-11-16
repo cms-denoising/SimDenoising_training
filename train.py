@@ -43,13 +43,16 @@ parser.add_argument("--model", type=str, default=None, help="Existing model to c
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
 parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
 parser.add_argument("--features", type=int, default=9, help="Number of features in CNN layers")
-parser.add_argument("--transform", type=str, default="none", choices=RootDataset.allowed_transforms, help="transform for input data")
+parser.add_argument("--transform", type=str, default=[], nargs='*', choices=RootDataset.allowed_transforms, help="transform(s) for input data")
 parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
 args = parser.parse_args()
 
+# backward compatibility
+if not isinstance(args.transform,list): args.transform = [args.transform]
+
 # create and save sharp, fuzzy, and reconstructed data sets and store in text files
-def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
+def make_sample_images(fuzzy_root, sharp_root, model, transform=[]):
     # makes random orientations match those from training
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)

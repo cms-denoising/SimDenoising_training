@@ -124,7 +124,7 @@ def main():
     outputs = np.load(args.numpy)['arr_0']
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
-    sharp, fuzzy = freeze_dataset(dat.RootDataset(args.fileFuzz, args.fileSharp, 'none'))
+    sharp, fuzzy = freeze_dataset(dat.RootDataset(args.fileFuzz, args.fileSharp))
     dataset = dict(
         sharp = dict(data=sharp),
         fuzzy = dict(data=fuzzy),

@@ -30,7 +30,7 @@ def get_branch(file_paths):
 class RootDataset(udata.Dataset):
     allowed_transforms = ["none","normalize","normalizeSharp","log10"]
     nfeatures = 1
-    def __init__(self, fuzzy_root, sharp_root, transform='none', shuffle=True, output=False):
+    def __init__(self, fuzzy_root, sharp_root, transform=[], shuffle=True, output=False):
         # assume bin configuration is the same for all files
         sharp_tree = get_tree(sharp_root[0])
         self.xbins = sharp_tree["xbins"].array().to_numpy()[0]
@@ -46,8 +46,9 @@ class RootDataset(udata.Dataset):
         self.stdevs = None
         self.do_unnormalize = False
         self.output = output
-        if self.transform not in self.allowed_transforms:
-            raise ValueError("Unknown transform: {}".format(self.transform))
+        unknown_transforms = [transform for transform in self.transform if transform not in self.allowed_transforms]
+        if len(unknown_transforms)>0:
+            raise ValueError("Unknown transforms: {}".format(unknown_transforms))
 
         # get data in np format
         self.sharp_branch = get_branch(sharp_root)
@@ -55,16 +56,17 @@ class RootDataset(udata.Dataset):
         # reshape to image tensor
         self.sharp_branch = self.sharp_branch.reshape((self.sharp_branch.shape[0],self.nfeatures,self.xbins,self.ybins))
         self.fuzzy_branch = self.fuzzy_branch.reshape((self.fuzzy_branch.shape[0],self.nfeatures,self.xbins,self.ybins))
-        # apply transform if any
-        if self.transform=="log10":
-            self.sharp_branch = np.log10(self.sharp_branch, where=self.sharp_branch>0)
-            self.fuzzy_branch = np.log10(self.fuzzy_branch, where=self.fuzzy_branch>0)
-        elif self.transform.startswith("normalize"):
-            norm_branch = self.sharp_branch if self.transform=="normalizeSharp" else self.fuzzy_branch
-            self.means = np.average(norm_branch, axis=(1,2,3))[:,None,None,None]
-            self.stdevs = np.std(norm_branch, axis=(1,2,3))[:,None,None,None]
-            self.sharp_branch = np.divide(self.sharp_branch-self.means,self.stdevs,where=self.stdevs!=0)
-            self.fuzzy_branch = np.divide(self.fuzzy_branch-self.means,self.stdevs,where=self.stdevs!=0)
+        # apply transforms if any (in order)
+        for transform in self.transform:
+            if transform=="log10":
+                self.sharp_branch = np.log10(self.sharp_branch, where=self.sharp_branch>0)
+                self.fuzzy_branch = np.log10(self.fuzzy_branch, where=self.fuzzy_branch>0)
+            elif transform.startswith("normalize"):
+                norm_branch = self.sharp_branch if transform=="normalizeSharp" else self.fuzzy_branch
+                self.means = np.average(norm_branch, axis=(1,2,3))[:,None,None,None]
+                self.stdevs = np.std(norm_branch, axis=(1,2,3))[:,None,None,None]
+                self.sharp_branch = np.divide(self.sharp_branch-self.means,self.stdevs,where=self.stdevs!=0)
+                self.fuzzy_branch = np.divide(self.fuzzy_branch-self.means,self.stdevs,where=self.stdevs!=0)
         # apply random rotation/flips consistently for both datasets
         for idx in range(self.sharp_branch.shape[0]):
             flipx, flipy, rot = get_flips()
@@ -93,7 +95,7 @@ class RootDataset(udata.Dataset):
             return self.unnormalize(self.sharp_branch[idx],idx=idx).squeeze(), \
                    self.unnormalize(self.fuzzy_branch[idx],idx=idx).squeeze()
         else:
-            if self.output and self.transform.startswith("normalize"):
+            if self.output and any(transform.startswith("normalize") for transform in self.transform):
                 return self.sharp_branch[idx], self.fuzzy_branch[idx], self.means[idx], self.stdevs[idx]
             else:
                 return self.sharp_branch[idx], self.fuzzy_branch[idx]
@@ -105,13 +107,15 @@ class RootDataset(udata.Dataset):
         if stdevs is None: stdevs = self.stdevs
         else: stdevs = np.asarray(stdevs)
 
-        if self.transform=="log10":
-            array = np.power(array,10)
-        elif self.transform.startswith("normalize"):
-            if idx==None:
-                array = array*stdevs+means
-            else:
-                array = array*stdevs[idx].squeeze()+means[idx].squeeze()
+        # unapply transform(s) in reverse order
+        for transform in reversed(self.transform):
+            if transform=="log10":
+                array = np.power(array,10)
+            elif transform.startswith("normalize"):
+                if idx==None:
+                    array = array*stdevs+means
+                else:
+                    array = array*stdevs[idx].squeeze()+means[idx].squeeze()
         return array
 
 if __name__=="__main__":
@@ -121,7 +125,7 @@ if __name__=="__main__":
     print(truth,truth.shape)
     print(noise,noise.shape)
     torch.manual_seed(0)
-    dataset = RootDataset([sys.argv[1]], [sys.argv[2]], "normalize")
+    dataset = RootDataset([sys.argv[1]], [sys.argv[2]], ["normalize"])
     truth, noise = dataset.__getitem__(0)
     print(truth,truth.shape)
     print(noise,noise.shape)
