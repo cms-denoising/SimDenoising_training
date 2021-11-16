@@ -1,7 +1,7 @@
 # modified from github.com/SaoYan/DnCNN-PyTorch/blob/master/train.py
 
 import sys
-sys.path.append(".local/lib/python3.8/site-packages")
+sys.path.append(".local/lib/python{}.{}/site-packages".format(sys.version_info.major,sys.version_info.minor))
 
 import torch
 import torch.nn as nn
