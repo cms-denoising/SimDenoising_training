@@ -110,7 +110,7 @@ class RootDataset(udata.Dataset):
         # unapply transform(s) in reverse order
         for transform in reversed(self.transform):
             if transform=="log10":
-                array = np.power(array,10)
+                array = np.power(10,array)
             elif transform.startswith("normalize"):
                 if idx==None:
                     array = array*stdevs+means
@@ -122,16 +122,19 @@ if __name__=="__main__":
     torch.manual_seed(0)
     dataset = RootDataset([sys.argv[1]], [sys.argv[2]])
     truth, noise = dataset.__getitem__(0)
-    print(truth,truth.shape)
-    print(noise,noise.shape)
+    print("Default:")
+    print("truth:",truth,truth.shape)
+    print("noisy:",noise,noise.shape)
     torch.manual_seed(0)
-    dataset = RootDataset([sys.argv[1]], [sys.argv[2]], ["normalize"])
-    truth, noise = dataset.__getitem__(0)
-    print(truth,truth.shape)
-    print(noise,noise.shape)
-    print(dataset.means[0],dataset.means.shape)
-    print(dataset.stdevs[0],dataset.stdevs.shape)
+    dataset = RootDataset([sys.argv[1]], [sys.argv[2]], ["log10","normalize"])
+    truth, noise = dataset[0]
+    print("Normalized:")
+    print("truth:",truth,truth.shape)
+    print("noisy:",noise,noise.shape)
+    print("means:",dataset.means[0],dataset.means.shape)
+    print("stdevs:",dataset.stdevs[0],dataset.stdevs.shape)
     dataset.do_unnormalize = True
     truth, noise = dataset.__getitem__(0)
-    print(truth,truth.shape)
-    print(noise,noise.shape)
+    print("Unnormalized:")
+    print("truth:",truth,truth.shape)
+    print("noisy:",noise,noise.shape)
