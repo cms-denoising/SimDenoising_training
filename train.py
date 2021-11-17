@@ -57,6 +57,7 @@ def main():
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
 
+    os.makedirs(args.outf)
     parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu
     if torch.cuda.is_available():
