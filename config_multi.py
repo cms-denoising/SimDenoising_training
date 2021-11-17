@@ -1,7 +1,7 @@
 from magiconfig import MagiConfig
 import glob
 
-energy = 850
+energy = 100
 num_events = '*'
 num_files = 10
 #currently only works with multiple files ... ?
@@ -13,14 +13,14 @@ else:
 
 def get_files(filetype):
     globstr = ""
-    if filetype == 'Fuzz': globstr = '/storage/local/data1/gpuscratch/leiningt/ntup_photon_energy'+str(energy)+'*Prod*_n'+str(num_events)+'_part*.root'
-    elif filetype == 'Sharp': globstr = '/storage/local/data1/gpuscratch/leiningt/ntup_photon_energy'+str(energy)+'*phi0.0_n'+str(num_events)+'_part*.root'
+    if filetype == 'Fuzz': globstr = '/storage/local/data1/gpuscratch/pedrok/ntup_photon_energy'+str(energy)+'*Prod*_n'+str(num_events)+'_part*.root'
+    elif filetype == 'Sharp': globstr = '/storage/local/data1/gpuscratch/pedrok/ntup_photon_energy'+str(energy)+'*phi0.0_n'+str(num_events)+'_part*.root'
     list_of_names = []
     for name in glob.glob(globstr):
         list_of_names.append(name)
     list_of_names.sort()
     list_of_names_t = list_of_names[:num_files]
-    list_of_names_v = list_of_names[num_files:]
+    list_of_names_v = list_of_names[num_files:2*num_files]
     return list_of_names_t, list_of_names_v
 
 fuzzy_t_files, fuzzy_v_files = get_files('Fuzz')
