@@ -87,7 +87,6 @@ def plot_hist(data, axis_x, axis_y, bins=20, labels=None, plotrange=None, path=N
         data_concat = np.concatenate(data)
         if logx: data_concat = np.ma.masked_array(data_concat, mask=data_concat<=0.0)
         plotrange = [np.min(data_concat), np.max(data_concat)]
-    print(path,plotrange)
     if logx:
         bins = np.logspace(np.log10(plotrange[0]),np.log10(plotrange[1]),bins)
     else:
