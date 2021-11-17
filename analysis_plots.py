@@ -53,7 +53,7 @@ def ppe(data, threshold=None):
     return np.mean(data, axis=(1,2))
 
 # energy-weighted, so threshold is unneeded
-def centroid(data, bininfo):
+def centroid(data, bininfo, stdev=False):
     # assume evenly spaced bins
     width = 0.5
     # need same bin centers for each event: concatenate is the fastest way to do this
@@ -64,8 +64,14 @@ def centroid(data, bininfo):
     xenergies = np.sum(data, axis=2)
     yenergies = np.sum(data, axis=1)
     # to get real units, multiply by bin size and add axis minimum value
-    xavg = np.sum(xcenters*xenergies,axis=1)/np.sum(xenergies,axis=1)
-    yavg = np.sum(ycenters*yenergies,axis=1)/np.sum(yenergies,axis=1)
+    def avg(centers,energies, stdev=False):
+        avgs = np.average(centers,weights=energies,axis=1)
+        if stdev:
+            return np.sqrt(avg((centers-avgs[:,None])**2,energies))
+        else:
+            return avgs
+    xavg = avg(xcenters,xenergies,stdev)
+    yavg = avg(ycenters,yenergies,stdev)
     rad = np.sqrt(xavg**2+yavg**2)
     return rad
 
@@ -159,8 +165,9 @@ def main():
     threshold = 0.1
     qtys = OrderedDict([
         ("ppe",ppe),
-        ("centroid",partial(centroid,bininfo=bininfo)),
         ("ppe_threshold",partial(ppe,threshold=threshold)),
+        ("centroid",partial(centroid,bininfo=bininfo)),
+        ("centroid_stdev",partial(centroid,bininfo=bininfo,stdev=True)),
         ("nhits",partial(hits_above_threshold,threshold=threshold)),
         ("hits",partial(pixel_energy,threshold=0.01)), # different threshold
     ])
@@ -181,9 +188,13 @@ def main():
 
     plot_hist([dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"],dataset["outputs"]["centroid"]], 'Centroid [pixels]', 'Number of events', labels = ['high-quality', 'low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/rad-centroid-hist-hle.png')
 
+    plot_hist([dataset["sharp"]["centroid_stdev"],dataset["fuzzy"]["centroid_stdev"],dataset["outputs"]["centroid_stdev"]], r'$\sigma_{\mathrm{centroid}}$ [pixels]', 'Number of events', labels = ['high-quality', 'low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/rad-centroid-stdev-hist-hle.png')
+
     plot_hist([dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"],dataset["outputs"]["nhits"]], 'Number of hits', 'Number of events', loc = 'upper left', labels = ['high-quality', 'low-quality','enhanced'], path=args.outf+'/'+args.folder+'/hit-number-hle.png')
 
     plot_scatter([[dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"]],[dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]]], 'Centroid (high-quality) [pixels]', 'Centroid [pixels]', labels=['low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/rad-centroid-scatter.png')
+
+    plot_scatter([[dataset["sharp"]["centroid_stdev"],dataset["fuzzy"]["centroid_stdev"]],[dataset["sharp"]["centroid_stdev"],dataset["outputs"]["centroid_stdev"]]], r'$\sigma_{\mathrm{centroid}}$ (high-quality) [pixels]', r'$\sigma_{\mathrm{centroid}}$ [pixels]', labels=['low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/rad-centroid-stdev-scatter.png')
 
     plot_scatter([[dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"]], [dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]]], 'Number of hits (high-quality)', 'Number of hits', labels=['low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/hit-scatter.png')
 
