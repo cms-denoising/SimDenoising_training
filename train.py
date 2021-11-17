@@ -14,9 +14,6 @@ from dataset import *
 import glob
 import torch.optim as optim
 from tensorboardX import SummaryWriter
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 from torch.utils.data import DataLoader
 import math
@@ -59,8 +56,6 @@ def init_weights(m):
 def main():
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
-
-    os.makedirs(args.outf+'/samples')
 
     parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu
@@ -151,13 +146,7 @@ def main():
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
 
-    # plot loss/epoch for training and validation sets
-    training = plt.plot(training_losses, label='training')
-    validation = plt.plot(validation_losses, label='validation')
-    plt.legend()
-    plt.savefig(args.outf + "/loss_plot.png")
-
-    #write out training and validataion loss values to text files
+    # write out training and validataion loss values to text files
     with open(args.outf + "/training_losses.txt","w") as tfileout:
         tfileout.write("\n".join("{}".format(tl) for tl in training_losses)+"\n")
     with open(args.outf + "/validation_losses.txt","w") as vfileout:
