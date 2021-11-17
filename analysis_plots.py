@@ -1,5 +1,5 @@
 import sys
-sys.path.append(".local/lib/python3.8/site-packages")
+sys.path.append(".local/lib/python{}.{}/site-packages".format(sys.version_info.major,sys.version_info.minor))
 
 import torch
 import torch.nn as nn
@@ -18,7 +18,15 @@ import dataset as dat
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 from functools import partial
 from collections import OrderedDict
+import mplhep as hep
 
+hep.style.use("CMS")
+plt.style.use('default.mplstyle')
+# based on https://github.com/mpetroff/accessible-color-cycles
+# gray, red, blue, mauve, orange, purple
+colors = ["#9c9ca1", "#e42536", "#5790fc", "#964a8b", "#f89c20", "#7a21dd"]
+styles = ['--','-',':','-.']
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
 
 def calculate_bins(fin):
     upfile = up.open(fin)
@@ -66,10 +74,17 @@ def dist_above_threshold(data, threshold):
     tmp = data[data>threshold]
     return tmp.flatten()
 
-def plot_hist(data, axis_x, axis_y, bins=10, labels=None, plotrange=None, path=None, logx=False, logy=False):
+def plot_hist(data, axis_x, axis_y, bins=20, labels=None, plotrange=None, path=None, logx=False, logy=True):
+    if plotrange is None:
+        plotrange = [min(np.concatenate(data)), max(np.concatenate(data))]
     if logx:
-        bins = np.logspace(np.log10(min(np.concatenate(data))),np.log10(max(np.concatenate(data))),bins)
-    plt.hist(data, bins=bins, alpha=0.75, label=labels)
+        bins = np.logspace(np.log10(plotrange[0]),np.log10(plotrange[1]),bins)
+    else:
+        bins = np.linspace(plotrange[0],plotrange[1],bins)
+    hists = [np.histogram(d,bins=bins) for d in data]
+    hep.histplot(hists[0],label=labels[0],histtype='fill')
+    for i,hist in enumerate(hists[1:]):
+        hep.histplot(hist,label=labels[i+1],linestyle=styles[i])
     plt.legend(loc='upper left')
     plt.xlabel(axis_x)
     plt.ylabel(axis_y)
@@ -77,6 +92,7 @@ def plot_hist(data, axis_x, axis_y, bins=10, labels=None, plotrange=None, path=N
     if logy: plt.yscale("log")
     if plotrange:
         plt.xlim(xmin=plotrange[0], xmax=plotrange[1])
+    hep.cms.label(data=False,label="Preliminary",rlabel="")
     if path:
         plt.savefig(path)
     plt.clf()
@@ -84,17 +100,18 @@ def plot_hist(data, axis_x, axis_y, bins=10, labels=None, plotrange=None, path=N
 def plot_scatter(data, axis_x, axis_y, bins=None, labels=None, plotline=True, path=None):
     xmin = min(np.concatenate([pair[0] for pair in data]))
     xmax = max(np.concatenate([pair[0] for pair in data]))
-    for pair,label in zip(data,labels):
+    for i,pair in enumerate(data):
         if plotline:
-            label = "{} ({:.2f})".format(label, np.corrcoef(pair[0],pair[1])[0][1])
-        plt.scatter(pair[0], pair[1], label=label)
-    if plotline == True:
+            labels[i] = "{} ({:.2f})".format(labels[i], np.corrcoef(pair[0],pair[1])[0][1])
+        sc = plt.scatter(pair[0], pair[1], label=labels[i], facecolor='none', edgecolor=colors[i+1])
+    if plotline:
         x=[xmin,xmax]
         y=x
         plt.plot(x, y)
     plt.legend(loc='upper left')
     plt.xlabel(axis_x)
     plt.ylabel(axis_y)
+    hep.cms.label(data=False,label="Preliminary",rlabel="")
     if path:
         plt.savefig(path)
     plt.clf()
@@ -107,7 +124,8 @@ def print_time(do_print,qty,t1,operation="Computed"):
 def main():
     parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
-    parser.add_argument("--outf", type=str, default="analysis-plots", help='Name of folder to be used to store outputs')
+    parser.add_argument("--outf", type=str, required=True, help='Name of folder to be used to store output folder')
+    parser.add_argument("--folder", type=str, default="analysis-plots", help='Name of folder to be used to store output plots')
     parser.add_argument("--numpy", type=str, default="test.npz", help='Path to .npz file of CNN-enhanced low quality (fuzzy) data')
     parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
     parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
@@ -115,7 +133,7 @@ def main():
     parser.add_argument("--verbose", default=False, action="store_true", help="enable verbose printouts")
     args = parser.parse_args()
 
-    os.makedirs(args.outf+'/analysis-plots/',exist_ok=True)
+    os.makedirs(args.outf+'/'+args.folder,exist_ok=True)
 
     t1 = time.time()
     if args.verbose: print("Started")
@@ -147,27 +165,21 @@ def main():
             datadict[qty] = fn(datadict["data"])
         t3 = print_time(args.verbose, qty, t3)
 
-    plot_hist([dataset["sharp"]["ppe"],dataset["outputs"]["ppe"],dataset["fuzzy"]["ppe"]], r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', bins=None, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/energy-per-pixel-hle.png')
+    plot_hist([dataset["sharp"]["ppe"],dataset["fuzzy"]["ppe"],dataset["outputs"]["ppe"]], r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', labels = ['high-quality', 'low-quality','enhanced'], path=args.outf+'/'+args.folder+'/energy-per-pixel-hle.png')
 
-    plot_hist([dataset["sharp"]["ppe"],dataset["outputs"]["ppe"]], r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', bins=None, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/energy-per-pixel-he.png')
+    plot_hist([dataset["sharp"]["hits"],dataset["fuzzy"]["hits"],dataset["outputs"]["hits"]], 'Pixel energy [MeV]', 'Number of pixels', logx=True, labels = ['high-quality', 'low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/hits-above-threshold-dist-hle.png')
 
-    plot_hist([dataset["sharp"]["hits"],dataset["outputs"]["hits"],dataset["fuzzy"]["hits"]], 'Pixel energy [MeV]', 'Number of pixels', bins=20, logx=True, logy=True, labels = ['high-quality', 'enhanced', 'low-quality'], path=args.outf+'/analysis-plots/hits-above-threshold-dist-hle.png')
+    plot_hist([dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"],dataset["outputs"]["centroid"]], 'Centroid [pixels]', 'Number of events', labels = ['high-quality', 'low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/rad-centroid-hist-hle.png')
 
-    plot_hist([dataset["sharp"]["hits"],dataset["outputs"]["hits"]], 'Pixel energy [MeV]', 'Number of pixels', bins=20, logx=True, logy=True, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/hits-above-threshold-dist-he.png')
+    plot_hist([dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"],dataset["outputs"]["nhits"]], 'Number of hits', 'Number of events', labels = ['high-quality', 'low-quality','enhanced'], path=args.outf+'/'+args.folder+'/hit-number-hle.png')
 
-    plot_hist([dataset["sharp"]["centroid"],dataset["outputs"]["centroid"],dataset["fuzzy"]["centroid"]], 'Centroid [pixels]', 'Number of events', bins=5, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/rad-centroid-hist-hle.png')
+    plot_scatter([[dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"]],[dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]]], 'Centroid (high-quality) [pixels]', 'Centroid [pixels]', labels=['low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/rad-centroid-scatter.png')
 
-    plot_hist([dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]], 'Centroid [pixels]', 'Number of events', bins=5, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/rad-centroid-hist-he.png')
+    plot_scatter([[dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"]], [dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]]], 'Number of hits (high-quality)', 'Number of hits', labels=['low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/hit-scatter.png')
 
-    plot_hist([dataset["sharp"]["nhits"],dataset["outputs"]["nhits"],dataset["fuzzy"]["nhits"]], 'Number of hits', 'Number of events', bins=10, labels = ['high-quality', 'enhanced','low-quality'], path=args.outf+'/analysis-plots/hit-number-hle.png')
+    plot_scatter([[dataset["sharp"]["ppe"],dataset["fuzzy"]["ppe"]],[dataset["sharp"]["ppe"],dataset["outputs"]["ppe"]]], r'$\langle$Energy/pixel$\rangle$ (high-quality) [MeV]', r'$\langle$Energy/pixel$\rangle$ [MeV]', labels=['low-quality', 'enhanced'], path=args.outf+'/'+args.folder+'/energy-scatter.png')
 
-    plot_hist([dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]], 'Number of hits', 'Number of events', bins=10, labels = ['high-quality', 'enhanced'], path=args.outf+'/analysis-plots/hit-number-he.png')
-
-    plot_scatter([[dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]],[dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"]]], 'Centroid (high-quality) [pixels]', 'Centroid [pixels]', labels=['enhanced', 'low-quality'], path=args.outf+'/analysis-plots/rad-centroid-scatter.png')
-
-    plot_scatter([[dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]], [dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"]]], 'Number of hits (high-quality)', 'Number of hits', labels=['enhanced', 'low-quality'], path=args.outf+'/analysis-plots/hit-scatter.png')
-
-    plot_scatter([[dataset["sharp"]["ppe"],dataset["outputs"]["ppe"]],[dataset["sharp"]["ppe"],dataset["fuzzy"]["ppe"]]], r'$\langle$Energy/pixel$\rangle$ (high-quality) [MeV]', r'$\langle$Energy/pixel$\rangle$ [MeV]', labels=['enhanced', 'low-quality'], path=args.outf+'/analysis-plots/energy-scatter.png')
+    t4 = print_time(args.verbose, "plots", t3, "Made")
 
 if __name__ == "__main__":
     main()
