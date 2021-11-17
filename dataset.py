@@ -28,7 +28,7 @@ def get_branch(file_paths):
     return branch
 
 class RootDataset(udata.Dataset):
-    allowed_transforms = ["none","normalize","normalizeSharp","log10"]
+    allowed_transforms = ["none","normalize","normalizeSharp","log10","sqrt"]
     nfeatures = 1
     def __init__(self, fuzzy_root, sharp_root, transform=[], shuffle=True, output=False):
         # assume bin configuration is the same for all files
@@ -61,6 +61,9 @@ class RootDataset(udata.Dataset):
             if transform=="log10":
                 self.sharp_branch = np.log10(self.sharp_branch+1.0)
                 self.fuzzy_branch = np.log10(self.fuzzy_branch+1.0)
+            elif transform=="sqrt":
+                self.sharp_branch = np.sqrt(self.sharp_branch)
+                self.fuzzy_branch = np.sqrt(self.fuzzy_branch)
             elif transform.startswith("normalize"):
                 norm_branch = self.sharp_branch if transform=="normalizeSharp" else self.fuzzy_branch
                 self.means = np.average(norm_branch, axis=(1,2,3))[:,None,None,None]
@@ -111,6 +114,8 @@ class RootDataset(udata.Dataset):
         for transform in reversed(self.transform):
             if transform=="log10":
                 array = np.power(10,array)-1.0
+            elif transform=="sqrt":
+                array = np.power(array,2)
             elif transform.startswith("normalize"):
                 if idx==None:
                     array = array*stdevs+means
