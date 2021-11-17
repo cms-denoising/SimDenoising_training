@@ -59,8 +59,8 @@ class RootDataset(udata.Dataset):
         # apply transforms if any (in order)
         for transform in self.transform:
             if transform=="log10":
-                self.sharp_branch = np.log10(self.sharp_branch, where=self.sharp_branch>0)
-                self.fuzzy_branch = np.log10(self.fuzzy_branch, where=self.fuzzy_branch>0)
+                self.sharp_branch = np.log10(self.sharp_branch+1.0)
+                self.fuzzy_branch = np.log10(self.fuzzy_branch+1.0)
             elif transform.startswith("normalize"):
                 norm_branch = self.sharp_branch if transform=="normalizeSharp" else self.fuzzy_branch
                 self.means = np.average(norm_branch, axis=(1,2,3))[:,None,None,None]
@@ -110,7 +110,7 @@ class RootDataset(udata.Dataset):
         # unapply transform(s) in reverse order
         for transform in reversed(self.transform):
             if transform=="log10":
-                array = np.power(10,array)
+                array = np.power(10,array)-1.0
             elif transform.startswith("normalize"):
                 if idx==None:
                     array = array*stdevs+means
