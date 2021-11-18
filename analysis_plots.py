@@ -1,14 +1,8 @@
 import sys
 sys.path.append(".local/lib/python{}.{}/site-packages".format(sys.version_info.major,sys.version_info.minor))
 
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
-from torch.nn import functional as f
-from models import DnCNN, PatchLoss, WeightedPatchLoss
 import uproot as up
 import numpy as np
-import torch.utils.data as udata
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -27,6 +21,8 @@ plt.style.use('default.mplstyle')
 colors = ["#9c9ca1", "#e42536", "#5790fc", "#964a8b", "#f89c20", "#7a21dd"]
 styles = ['--','-',':','-.']
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
+lumitext = r'photon, $E=850\,\mathrm{GeV}$, $\eta=0.5$, $\phi=0$'
+data_labels = {'sharp': 'Geant4', 'fuzzy': r'Modified', 'outputs': 'CNN'}
 
 def calculate_bins(fin):
     upfile = up.open(fin)
@@ -82,7 +78,9 @@ def pixel_energy(data, threshold=None):
     if threshold is not None: data = data[data>threshold]
     return data.flatten()
 
-def plot_hist(data, axis_x, axis_y, bins=20, labels=None, plotrange=None, path=None, logx=False, logy=True, loc='best', threshold_line=None):
+def plot_hist(dataset, samples, qty, axis_x, axis_y, bins=20, plotrange=None, path=None, logx=False, logy=True, loc='best', threshold_line=None):
+    data = [dataset[sample][qty] for sample in samples]
+    labels = [data_labels[sample] for sample in samples]
     if plotrange is None:
         data_concat = np.concatenate(data)
         if logx: data_concat = np.ma.masked_array(data_concat, mask=data_concat<=0.0)
@@ -105,11 +103,14 @@ def plot_hist(data, axis_x, axis_y, bins=20, labels=None, plotrange=None, path=N
         plt.axvline(x=threshold_line, color='k')
     plt.legend(loc=loc)
     hep.cms.label(data=False,label="Preliminary",rlabel="")
+    hep.cms.lumitext(lumitext,fontsize=mpl.rcParams["font.size"]*0.5)
     if path:
         plt.savefig(path)
     plt.close()
 
-def plot_scatter(data, axis_x, axis_y, bins=None, labels=None, plotline=True, path=None, loc='best'):
+def plot_scatter(dataset, samples, qty, axis_x, axis_y, bins=None, labels=None, plotline=True, path=None, loc='best'):
+    data = [[dataset[sample[0]][qty],dataset[sample[1]][qty]] for sample in samples]
+    labels = [data_labels[sample[1]] for sample in samples]
     xmin = min(np.concatenate([pair[0] for pair in data]))
     xmax = max(np.concatenate([pair[0] for pair in data]))
     for i,pair in enumerate(data):
@@ -124,6 +125,7 @@ def plot_scatter(data, axis_x, axis_y, bins=None, labels=None, plotline=True, pa
     plt.xlabel(axis_x)
     plt.ylabel(axis_y)
     hep.cms.label(data=False,label="Preliminary",rlabel="")
+    hep.cms.lumitext(lumitext,fontsize=mpl.rcParams["font.size"]*0.5)
     if path:
         plt.savefig(path)
     plt.close()
@@ -151,7 +153,22 @@ def make_sample_images(dataset, bininfo, path):
             plt.xlabel("x [mm]")
             plt.ylabel("y [mm]")
             artist.cbar.set_label("Energy [MeV]")
-            hep.cms.label(data=False,label="Preliminary",rlabel="")
+            hep.cms.label(data=False,label="Preliminary",rlabel=lumitext)
+            # add text indicating sample type
+            # based on mplhep lumitext()
+            ax = plt.gca()
+            ax.text(
+                x = 0.97,
+                y = 0.97,
+                s = data_labels[name],
+                transform = ax.transAxes,
+                ha = "right",
+                va = "top",
+                fontsize = mpl.rcParams["font.size"]*1.25,
+                fontweight = "normal",
+                fontname = "TeX Gyre Heros",
+                color = "w",
+            )
             plt.savefig(path+'/'+name+str(event)+'.png')
             plt.close()
 
@@ -179,7 +196,6 @@ def main():
 
     outputs = np.load(args.numpy)['arr_0']
     random.seed(args.randomseed)
-    torch.manual_seed(args.randomseed)
     sharp, fuzzy = freeze_dataset(dat.RootDataset(args.fileFuzz, args.fileSharp))
     dataset = dict(
         sharp = dict(data=sharp),
@@ -209,27 +225,27 @@ def main():
             datadict[qty] = fn(datadict["data"])
         t3 = print_time(args.verbose, qty, t3)
 
-    plot_hist([dataset["sharp"]["ppe"],dataset["fuzzy"]["ppe"],dataset["outputs"]["ppe"]], r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', loc = 'upper left', labels = ['high-quality', 'low-quality','enhanced'], path=ana_path+'/energy-per-pixel-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "ppe", r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', loc = 'upper left', path=ana_path+'/energy-per-pixel-hle.png')
 
-    plot_hist([dataset["sharp"]["ppe_threshold"],dataset["fuzzy"]["ppe_threshold"],dataset["outputs"]["ppe_threshold"]], r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', labels = ['high-quality', 'low-quality','enhanced'], path=ana_path+'/energy-per-pixel-threshold-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "ppe_threshold", r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', path=ana_path+'/energy-per-pixel-threshold-hle.png')
 
-    plot_hist([dataset["sharp"]["hits"],dataset["fuzzy"]["hits"],dataset["outputs"]["hits"]], 'Pixel energy [MeV]', 'Number of pixels', logx=True, loc = 'upper left', threshold_line = threshold, labels = ['high-quality', 'low-quality', 'enhanced'], path=ana_path+'/hits-above-threshold-dist-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "hits", 'Pixel energy [MeV]', 'Number of pixels', logx=True, loc = 'upper left', threshold_line = threshold, path=ana_path+'/hits-above-threshold-dist-hle.png')
 
-    plot_hist([dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"],dataset["outputs"]["centroid"]], 'Centroid [pixels]', 'Number of events', labels = ['high-quality', 'low-quality', 'enhanced'], path=ana_path+'/rad-centroid-hist-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "centroid", 'Centroid [pixels]', 'Number of events', path=ana_path+'/rad-centroid-hist-hle.png')
 
-    plot_hist([dataset["sharp"]["centroid_stdev"],dataset["fuzzy"]["centroid_stdev"],dataset["outputs"]["centroid_stdev"]], r'$\sigma_{\mathrm{centroid}}$ [pixels]', 'Number of events', labels = ['high-quality', 'low-quality', 'enhanced'], path=ana_path+'/rad-centroid-stdev-hist-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "centroid_stdev", r'$\sigma_{\mathrm{centroid}}$ [pixels]', 'Number of events', path=ana_path+'/rad-centroid-stdev-hist-hle.png')
 
-    plot_hist([dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"],dataset["outputs"]["nhits"]], 'Number of hits', 'Number of events', loc = 'upper left', labels = ['high-quality', 'low-quality','enhanced'], path=ana_path+'/hit-number-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "nhits", 'Number of hits', 'Number of events', loc = 'upper left', path=ana_path+'/hit-number-hle.png')
 
-    plot_scatter([[dataset["sharp"]["centroid"],dataset["fuzzy"]["centroid"]],[dataset["sharp"]["centroid"],dataset["outputs"]["centroid"]]], 'Centroid (high-quality) [pixels]', 'Centroid [pixels]', labels=['low-quality', 'enhanced'], path=ana_path+'/rad-centroid-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "centroid", 'Centroid ({}) [pixels]'.format(data_labels["sharp"]), 'Centroid [pixels]', path=ana_path+'/rad-centroid-scatter.png')
 
-    plot_scatter([[dataset["sharp"]["centroid_stdev"],dataset["fuzzy"]["centroid_stdev"]],[dataset["sharp"]["centroid_stdev"],dataset["outputs"]["centroid_stdev"]]], r'$\sigma_{\mathrm{centroid}}$ (high-quality) [pixels]', r'$\sigma_{\mathrm{centroid}}$ [pixels]', labels=['low-quality', 'enhanced'], path=ana_path+'/rad-centroid-stdev-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "centroid_stdev", r'{} ({}) [pixels]'.format(r'$\sigma_{\mathrm{centroid}}$', data_labels["sharp"]), r'$\sigma_{\mathrm{centroid}}$ [pixels]', path=ana_path+'/rad-centroid-stdev-scatter.png')
 
-    plot_scatter([[dataset["sharp"]["nhits"],dataset["fuzzy"]["nhits"]], [dataset["sharp"]["nhits"],dataset["outputs"]["nhits"]]], 'Number of hits (high-quality)', 'Number of hits', labels=['low-quality', 'enhanced'], path=ana_path+'/hit-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "nhits", 'Number of hits ({})'.format(data_labels["sharp"]), 'Number of hits', path=ana_path+'/hit-scatter.png')
 
-    plot_scatter([[dataset["sharp"]["ppe"],dataset["fuzzy"]["ppe"]],[dataset["sharp"]["ppe"],dataset["outputs"]["ppe"]]], r'$\langle$Energy/pixel$\rangle$ (high-quality) [MeV]', r'$\langle$Energy/pixel$\rangle$ [MeV]', labels=['low-quality', 'enhanced'], path=ana_path+'/energy-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "ppe", r'$\langle$Energy/pixel$\rangle$ ({}) [MeV]'.format(data_labels["sharp"]), r'$\langle$Energy/pixel$\rangle$ [MeV]', path=ana_path+'/energy-scatter.png')
 
-    plot_scatter([[dataset["sharp"]["ppe_threshold"],dataset["fuzzy"]["ppe_threshold"]],[dataset["sharp"]["ppe_threshold"],dataset["outputs"]["ppe_threshold"]]], r'$\langle$Energy/pixel$\rangle$ (high-quality) [MeV]', r'$\langle$Energy/pixel$\rangle$ [MeV]', labels=['low-quality', 'enhanced'], path=ana_path+'/energy-scatter-threshold.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "ppe_threshold", r'$\langle$Energy/pixel$\rangle$ ({}) [MeV]'.format(data_labels["sharp"]), r'$\langle$Energy/pixel$\rangle$ [MeV]', path=ana_path+'/energy-scatter-threshold.png')
 
     t4 = print_time(args.verbose, "plots", t3, "Made")
 

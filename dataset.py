@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random
 import torch.utils.data as udata
-import torch
 
 def get_flips():
     flipx = random.randint(0, 1)
@@ -124,7 +123,7 @@ class RootDataset(udata.Dataset):
         return array
 
 if __name__=="__main__":
-    torch.manual_seed(0)
+    random.seed(0)
     dataset = RootDataset([sys.argv[1]], [sys.argv[2]])
     truth, noise = dataset.__getitem__(0)
     print("Default:")
