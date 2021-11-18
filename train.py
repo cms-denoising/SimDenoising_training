@@ -145,6 +145,8 @@ def main():
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
+        jitmodel = torch.jit.script(model)
+        torch.jit.save(jitmodel, os.path.join(args.outf, 'net.jit.pth'))
 
     # write out training and validataion loss values to text files
     with open(args.outf + "/training_losses.txt","w") as tfileout:

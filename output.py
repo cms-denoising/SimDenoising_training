@@ -15,16 +15,20 @@ import torch.utils.data as udata
 import dataset as dat
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 import random
+import time
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def load_model(trained_model, device):
-    model = DnCNN(channels=1, num_of_layers=9, kernel_size=3, features=100).to(device)
-    model.load_state_dict(torch.load(trained_model, map_location=device))
-    model.eval()
-    torch.no_grad()
-    return model
+    if "jit" in trained_model:
+        return torch.jit.load(trained_model, map_location=device)
+    else:
+        model = DnCNN(channels=1, num_of_layers=9, kernel_size=3, features=100).to(device)
+        model.load_state_dict(torch.load(trained_model, map_location=device))
+        model.eval()
+        torch.no_grad()
+        return model
 
 def main():
     parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
@@ -37,6 +41,7 @@ def main():
     parser.add_argument("--transform", type=str, default=[], nargs='*', choices=dat.RootDataset.allowed_transforms, help="transform(s) for input data")
     parser.add_argument("--batchSize", type=int, default=100, help="Training batch size")
     parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
+    parser.add_argument("--verbose", default=False, action="store_true", help="enable verbose printouts")
     args = parser.parse_args()
 
     # backward compatibility
@@ -58,17 +63,27 @@ def main():
     model = load_model(args.model, device)
 
     outputs = []
+    inference_time = 0
+    total_time = 0
     for i, data in enumerate(loader):
+        t1 = time.time()
         _, fuzzy, means, stdevs = data
         fuzzy = fuzzy.unsqueeze(1).float().to(device)
-        output = model(fuzzy).squeeze(1).cpu().detach().numpy()
+        t2 = time.time()
+        output = model(fuzzy)
+        t3 = time.time()
+        output = output.squeeze(1).cpu().detach().numpy()
         output = dataset.unnormalize(output,means=means,stdevs=stdevs)
         if i==0: outputs = output
         else: outputs = np.concatenate((outputs,output))
         del _
         del fuzzy
         del output
+        t4 = time.time()
+        inference_time += t3-t2
+        total_time += t4-t1
     np.savez(args.numpy, outputs)
+    if args.verbose: print("Nevents: {}\nInference time: {} s\nTotal time: {} s".format(len(outputs),inference_time, total_time))
 
 if __name__ == "__main__":
     main()
