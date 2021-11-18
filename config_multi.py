@@ -1,7 +1,7 @@
 from magiconfig import MagiConfig
 import glob
 
-energy = 100
+energy = 850
 num_events = '*'
 num_files = 10
 #currently only works with multiple files ... ?
@@ -37,7 +37,6 @@ config.num_workers = 8
 config.outf = 'out-train-aug12-1'
 config.transform = 'normalize'
 config.patchSize = 100
-config.sigma = 20
 config.trainfileFuzz = fuzzy_t_files
 config.trainfileSharp = sharp_t_files
 config.valfileFuzz = fuzzy_v_files

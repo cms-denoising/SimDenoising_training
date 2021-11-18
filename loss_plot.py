@@ -18,7 +18,7 @@ mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
 
 # parse arguments
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
-parser.add_argument("--outf", type=str, default="logs", help='Name of folder to be used to store outputs')
+parser.add_argument("--outf", type=str, required=True, help='Name of folder to be used to store outputs')
 args = parser.parse_args()
 
 # plot loss/epoch for training and validation sets

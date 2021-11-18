@@ -27,8 +27,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
 parser.add_argument("--num-layers", type=int, default=9, help="Number of total layers in the CNN")
-parser.add_argument("--sigma", type=float, default=20, help='Standard deviation of gaussian noise level')
-parser.add_argument("--outf", type=str, default="logs", help='Name of folder to be used to store outputs')
+parser.add_argument("--outf", type=str, required=True, help='Name of folder to be used to store outputs')
 parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
 parser.add_argument("--trainfileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for training')
