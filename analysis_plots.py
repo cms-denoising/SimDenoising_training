@@ -24,6 +24,16 @@ mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
 lumitext = r'photon, $E=850\,\mathrm{GeV}$, $\eta=0.5$, $\phi=0$'
 data_labels = {'sharp': 'Geant4', 'fuzzy': r'Modified', 'outputs': 'CNN'}
 
+# based on https://github.com/philrose/python/blob/master/stats.py
+def concordance(x,y):
+    cov = np.cov(x,y)[0][1]
+    xvar = np.var(x)
+    yvar = np.var(y)
+    xavg = np.mean(x)
+    yavg = np.mean(y)
+    lincc = (2*cov)/(xvar+yvar+(xavg-yavg)**2)
+    return lincc
+
 def calculate_bins(fin):
     upfile = up.open(fin)
     tree = upfile["g4SimHits"]["tree"]
@@ -115,7 +125,7 @@ def plot_scatter(dataset, samples, qty, axis_x, axis_y, bins=None, labels=None, 
     xmax = max(np.concatenate([pair[0] for pair in data]))
     for i,pair in enumerate(data):
         if plotline:
-            labels[i] = "{} ({:.2f})".format(labels[i], np.corrcoef(pair[0],pair[1])[0][1])
+            labels[i] = "{} ({:.2f})".format(labels[i], concordance(pair[0],pair[1]))
         sc = plt.scatter(pair[0], pair[1], label=labels[i], facecolor='none', edgecolor=colors[i+1])
     if plotline:
         x=[xmin,xmax]
