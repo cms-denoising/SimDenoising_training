@@ -14,22 +14,22 @@ dataset.py: loads image data from a root file into a dataset object to be used i
 models.py: the CNN and the loss function(s)
 
 train.py: trains the network, accepts the following command line arguments
-	 --num_of_layers
-	 --outf
-	 --epochs
-	 --lr
-	 --trainfileSharp
-	 --trainfileFuzz
-	 --valfileSharp
-	 --valfileFuzz
-	 --batchSize
-	 --model
-	 --patchSize
-	 --kernelSize
-	 --features
-	 --transform
-	 --num-workers
-	 --randomseed
+* --num_of_layers
+* --outf
+* --epochs
+* --lr
+* --trainfileSharp
+* --trainfileFuzz
+* --valfileSharp
+* --valfileFuzz
+* --batchSize
+* --model
+* --patchSize
+* --kernelSize
+* --features
+* --transform
+* --num-workers
+* --randomseed
 
 loss_plot.py: plots training and validation losses
 
