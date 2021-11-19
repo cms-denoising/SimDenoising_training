@@ -1,7 +1,7 @@
 # modified from github.com/SaoYan/DnCNN-PyTorch/blob/master/train.py
 
 import sys
-sys.path.append(".local/lib/python3.8/site-packages")
+sys.path.append(".local/lib/python{}.{}/site-packages".format(sys.version_info.major,sys.version_info.minor))
 
 import torch
 import torch.nn as nn
@@ -14,9 +14,6 @@ from dataset import *
 import glob
 import torch.optim as optim
 from tensorboardX import SummaryWriter
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
 from magiconfig import ArgumentParser, MagiConfigOptions, ArgumentDefaultsRawHelpFormatter
 from torch.utils.data import DataLoader
 import math
@@ -30,8 +27,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
 
 parser.add_argument("--num-layers", type=int, default=9, help="Number of total layers in the CNN")
-parser.add_argument("--sigma", type=float, default=20, help='Standard deviation of gaussian noise level')
-parser.add_argument("--outf", type=str, default="logs", help='Name of folder to be used to store outputs')
+parser.add_argument("--outf", type=str, required=True, help='Name of folder to be used to store outputs')
 parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
 parser.add_argument("--trainfileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for training')
@@ -43,67 +39,13 @@ parser.add_argument("--model", type=str, default=None, help="Existing model to c
 parser.add_argument("--patchSize", type=int, default=20, help="Size of patches to apply in loss function")
 parser.add_argument("--kernelSize", type=int, default=3, help="Size of kernel in CNN")
 parser.add_argument("--features", type=int, default=9, help="Number of features in CNN layers")
-parser.add_argument("--transform", type=str, default="none", choices=RootDataset.allowed_transforms, help="transform for input data")
+parser.add_argument("--transform", type=str, default=[], nargs='*', choices=RootDataset.allowed_transforms, help="transform(s) for input data")
 parser.add_argument("--num-workers", type=int, default=8, help="Number of workers for data loaders")
 parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
 args = parser.parse_args()
 
-# create and save sharp, fuzzy, and reconstructed data sets and store in text files
-def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
-    # makes random orientations match those from training
-    random.seed(args.randomseed)
-    torch.manual_seed(args.randomseed)
-    dataset = RootDataset(fuzzy_root, sharp_root, transform)
-    model.to('cpu')
-    for event in range(10):
-        sharp_norm, fuzzy_norm = dataset[event]
-        fuzzy_eval = np.expand_dims(fuzzy_norm,(0,1))
-        output = model(torch.from_numpy(fuzzy_eval).float()).squeeze(0).squeeze(0).cpu().detach().numpy()
-        output_un = dataset.unnormalize(output,event)
-        np.savetxt(args.outf+'/samples/output' + str(event) + '.txt', output_un)
-    dataset.do_unnormalize = True
-    for event in range(10):
-        sharp, fuzzy = dataset[event]
-        np.savetxt(args.outf+'/samples/sharp' + str(event) + '.txt', sharp)
-        np.savetxt(args.outf+'/samples/fuzzy' + str(event) + '.txt', fuzzy)
-    model.to('cuda')
-
-#makes histograms given bin weights listed in .txt file
-def make_plots(fin, xmin, xmax, xbins, ymin, ymax, ybins):
-    binweights = np.loadtxt(fin)
-    binarray = []
-    for i, elem in enumerate(binweights):
-        for j, elem in enumerate(binweights[i]):
-            binarray.append(binweights[i][j])
-
-    #builds axes for histogram given min/max and bin number
-    xaxis = []
-    count = 0
-    xstart = xmin
-    while count < ybins:
-        for i in range(xbins):
-            x = xstart + ((xmax-xmin)/xbins)*float(i)
-            xaxis.append(x)
-        count = count + 1
-
-    yaxis = []
-    ystart = ymin
-    for i in range(ybins):
-        y = ystart + ((ymax-ymin)/ybins)*float(i)
-        count = 0
-        while count < xbins:
-            yaxis.append(y)
-            count = count + 1
-
-    #makes histogram
-    fig = plt.subplots(figsize =(10, 7))
-    plt.hist2d(xaxis, yaxis, bins=[xbins,ybins], weights = binarray)
-    plt.title("Energy Deposits Projected on z plane")
-    plt.xlabel("x (cm)")
-    plt.ylabel("y (cm)")
-    plt.colorbar(label = "Energy (MeV)")
-    fin = str(fin).replace(args.outf+'/samples/','')
-    plt.savefig(args.outf+'/plots/' + str(fin).replace( '.txt', '.png'))
+# backward compatibility
+if not isinstance(args.transform,list): args.transform = [args.transform]
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -114,8 +56,7 @@ def main():
     random.seed(args.randomseed)
     torch.manual_seed(args.randomseed)
 
-    os.makedirs(args.outf+'/samples')
-
+    os.makedirs(args.outf)
     parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu
     if torch.cuda.is_available():
@@ -204,25 +145,14 @@ def main():
         # save the model
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
+        jitmodel = torch.jit.script(model)
+        torch.jit.save(jitmodel, os.path.join(args.outf, 'net.jit.pth'))
 
-    # plot loss/epoch for training and validation sets
-    training = plt.plot(training_losses, label='training')
-    validation = plt.plot(validation_losses, label='validation')
-    plt.legend()
-    plt.savefig(args.outf + "/loss_plot.png")
-
-    #write out training and validataion loss values to text files
+    # write out training and validataion loss values to text files
     with open(args.outf + "/training_losses.txt","w") as tfileout:
         tfileout.write("\n".join("{}".format(tl) for tl in training_losses)+"\n")
     with open(args.outf + "/validation_losses.txt","w") as vfileout:
         vfileout.write("\n".join("{}".format(vl) for vl in validation_losses)+"\n")
-
-    make_sample_images(args.valfileFuzz, args.valfileSharp, model, args.transform)
-
-    #makes histograms of sample data
-    os.makedirs(args.outf+'/plots')
-    for fin in os.listdir(args.outf+'/samples'):
-        make_plots(args.outf+'/samples/'+fin, xmin, xmax, xbins, ymin, ymax, ybins)
 
 if __name__ == "__main__":
     main()

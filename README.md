@@ -1,30 +1,38 @@
 ## Setup:
 
 ```bash
-git clone git@github.com:kpedro88/SimDenoising_training
+git clone git@github.com:cms-denoising/SimDenoising_training
 cd SimDenoising_training
 [launch conda/singularity environment]
-HOME=$PWD pip install --user --no-cache-dir magiconfig
+HOME=$PWD pip install --user --no-cache-dir magiconfig mplhep
 ```
 
 ## Description of files:
 
-dataset.py - loads 100*100 pixel data from a root file into a Dataset object to be used in training
+dataset.py: loads image data from a root file into a dataset object to be used in training
 
-train.py - trains the network, accepts the following command line arguments
+models.py: the CNN and the loss function(s)
+
+train.py: trains the network, accepts the following command line arguments
 	 --num_of_layers
-	 --sigma
 	 --outf
 	 --epochs
 	 --lr
-	 --trainfile
-	 --valfile
+	 --trainfileSharp
+	 --trainfileFuzz
+	 --valfileSharp
+	 --valfileFuzz
 	 --batchSize
 	 --model
 	 --patchSize
 	 --kernelSize
 	 --features
+	 --transform
+	 --num-workers
+	 --randomseed
 
-models.py - the CNN and the loss function(s)
+loss_plot.py: plots training and validation losses
 
-in tools/: various unfinished and undocumented tools for making plots, etc. 
+output.py: creates npz file of output images from running trained network on low-quality input images
+
+analysis_plots.py: plots sample images, histograms, and scatterplots for various physical quantities
