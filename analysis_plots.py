@@ -23,6 +23,11 @@ styles = ['--','-',':','-.']
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
 lumitext = r'photon, $E=850\,\mathrm{GeV}$, $\eta=0.5$, $\phi=0$'
 data_labels = {'sharp': 'Geant4', 'fuzzy': r'Modified', 'outputs': 'CNN'}
+printformats = []
+printargs = {
+    "png": {"dpi":100},
+    "pdf": {"bbox_inches":"tight"},
+}
 
 # based on https://github.com/philrose/python/blob/master/stats.py
 def concordance(x,y):
@@ -115,7 +120,7 @@ def plot_hist(dataset, samples, qty, axis_x, axis_y, bins=20, plotrange=None, pa
     hep.cms.label(data=False,label="Preliminary",rlabel="")
     hep.cms.lumitext(lumitext,fontsize=mpl.rcParams["font.size"]*0.5)
     if path:
-        plt.savefig(path)
+        save_figs(path)
     plt.close()
 
 def plot_scatter(dataset, samples, qty, axis_x, axis_y, bins=None, labels=None, plotline=True, path=None, loc='best'):
@@ -137,7 +142,7 @@ def plot_scatter(dataset, samples, qty, axis_x, axis_y, bins=None, labels=None, 
     hep.cms.label(data=False,label="Preliminary",rlabel="")
     hep.cms.lumitext(lumitext,fontsize=mpl.rcParams["font.size"]*0.5)
     if path:
-        plt.savefig(path)
+        save_figs(path)
     plt.close()
 
 def print_time(do_print,qty,t1,operation="Computed"):
@@ -179,8 +184,13 @@ def make_sample_images(dataset, bininfo, path):
                 fontname = "TeX Gyre Heros",
                 color = "w",
             )
-            plt.savefig(path+'/'+name+str(event)+'.png')
+            save_figs(path+'/'+name+str(event))
             plt.close()
+
+def save_figs(path):
+    for pf in printformats:
+        fargs = printargs[pf] if pf in printargs else {}
+        plt.savefig(path+'.'+pf,**fargs)
 
 def main():
     parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
@@ -192,9 +202,12 @@ def main():
     parser.add_argument("--fileSharp", type=str, default=[], nargs='+', help='Path to higher quality .root file for making plots')
     parser.add_argument("--fileFuzz", type=str, default=[], nargs='+', help='Path to lower quality .root file for making plots')
     parser.add_argument("--randomseed", type=int, default=0, help="Initial value for random.seed()")
+    parser.add_argument("--printformats", type=str, default=["png"], nargs='+', help="print formats")
     parser.add_argument("--verbose", default=False, action="store_true", help="enable verbose printouts")
     args = parser.parse_args()
 
+    global printformats
+    printformats = args.printformats
     ana_path = args.outf+'/'+args.folder
     os.makedirs(ana_path,exist_ok=True)
     sample_path = args.outf+'/'+args.sample
@@ -235,27 +248,27 @@ def main():
             datadict[qty] = fn(datadict["data"])
         t3 = print_time(args.verbose, qty, t3)
 
-    plot_hist(dataset, ["sharp","fuzzy","outputs"], "ppe", r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', loc = 'upper left', path=ana_path+'/energy-per-pixel-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "ppe", r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', loc = 'upper left', path=ana_path+'/energy-per-pixel-hle')
 
-    plot_hist(dataset, ["sharp","fuzzy","outputs"], "ppe_threshold", r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', path=ana_path+'/energy-per-pixel-threshold-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "ppe_threshold", r'$\langle$Energy/pixel$\rangle$ [MeV]', 'Number of events', path=ana_path+'/energy-per-pixel-threshold-hle')
 
-    plot_hist(dataset, ["sharp","fuzzy","outputs"], "hits", 'Pixel energy [MeV]', 'Number of pixels', logx=True, loc = 'upper left', threshold_line = threshold, path=ana_path+'/hits-above-threshold-dist-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "hits", 'Pixel energy [MeV]', 'Number of pixels', logx=True, loc = 'upper left', threshold_line = threshold, path=ana_path+'/hits-above-threshold-dist-hle')
 
-    plot_hist(dataset, ["sharp","fuzzy","outputs"], "centroid", 'Centroid [pixels]', 'Number of events', path=ana_path+'/rad-centroid-hist-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "centroid", 'Centroid [pixels]', 'Number of events', path=ana_path+'/rad-centroid-hist-hle')
 
-    plot_hist(dataset, ["sharp","fuzzy","outputs"], "centroid_stdev", r'$\sigma_{\mathrm{centroid}}$ [pixels]', 'Number of events', path=ana_path+'/rad-centroid-stdev-hist-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "centroid_stdev", r'$\sigma_{\mathrm{centroid}}$ [pixels]', 'Number of events', path=ana_path+'/rad-centroid-stdev-hist-hle')
 
-    plot_hist(dataset, ["sharp","fuzzy","outputs"], "nhits", 'Number of hits', 'Number of events', loc = 'upper left', path=ana_path+'/hit-number-hle.png')
+    plot_hist(dataset, ["sharp","fuzzy","outputs"], "nhits", 'Number of hits', 'Number of events', loc = 'upper left', path=ana_path+'/hit-number-hle')
 
-    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "centroid", 'Centroid ({}) [pixels]'.format(data_labels["sharp"]), 'Centroid [pixels]', path=ana_path+'/rad-centroid-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "centroid", 'Centroid ({}) [pixels]'.format(data_labels["sharp"]), 'Centroid [pixels]', path=ana_path+'/rad-centroid-scatter')
 
-    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "centroid_stdev", r'{} ({}) [pixels]'.format(r'$\sigma_{\mathrm{centroid}}$', data_labels["sharp"]), r'$\sigma_{\mathrm{centroid}}$ [pixels]', path=ana_path+'/rad-centroid-stdev-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "centroid_stdev", r'{} ({}) [pixels]'.format(r'$\sigma_{\mathrm{centroid}}$', data_labels["sharp"]), r'$\sigma_{\mathrm{centroid}}$ [pixels]', path=ana_path+'/rad-centroid-stdev-scatter')
 
-    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "nhits", 'Number of hits ({})'.format(data_labels["sharp"]), 'Number of hits', path=ana_path+'/hit-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "nhits", 'Number of hits ({})'.format(data_labels["sharp"]), 'Number of hits', path=ana_path+'/hit-scatter')
 
-    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "ppe", r'$\langle$Energy/pixel$\rangle$ ({}) [MeV]'.format(data_labels["sharp"]), r'$\langle$Energy/pixel$\rangle$ [MeV]', path=ana_path+'/energy-scatter.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "ppe", r'$\langle$Energy/pixel$\rangle$ ({}) [MeV]'.format(data_labels["sharp"]), r'$\langle$Energy/pixel$\rangle$ [MeV]', path=ana_path+'/energy-scatter')
 
-    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "ppe_threshold", r'$\langle$Energy/pixel$\rangle$ ({}) [MeV]'.format(data_labels["sharp"]), r'$\langle$Energy/pixel$\rangle$ [MeV]', path=ana_path+'/energy-scatter-threshold.png')
+    plot_scatter(dataset, [["sharp","fuzzy"],["sharp","outputs"]], "ppe_threshold", r'$\langle$Energy/pixel$\rangle$ ({}) [MeV]'.format(data_labels["sharp"]), r'$\langle$Energy/pixel$\rangle$ [MeV]', path=ana_path+'/energy-scatter-threshold')
 
     t4 = print_time(args.verbose, "plots", t3, "Made")
 
