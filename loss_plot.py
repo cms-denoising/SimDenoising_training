@@ -27,6 +27,7 @@ def save_figs(path):
 
 # parse arguments
 parser = ArgumentParser(description="DnCNN", config_options=MagiConfigOptions(), formatter_class=ArgumentDefaultsRawHelpFormatter)
+parser.add_argument("--zero", default=False, action="store_true", help='Set y axis minimum to 0')
 parser.add_argument("--outf", type=str, required=True, help='Name of folder to be used to store outputs')
 parser.add_argument("--printformats", type=str, default=["png"], nargs='+', help="print formats")
 args = parser.parse_args()
@@ -38,6 +39,8 @@ for name in ["training","validation"]:
     plt.plot(data, label=name)
 plt.xlabel("Epoch")
 plt.ylabel("Loss")
+if args.zero:
+    plt.ylim(bottom=0)
 hep.cms.label(data=False,label="Preliminary",rlabel="")
 plt.legend()
 save_figs(args.outf + "/loss_plot")
